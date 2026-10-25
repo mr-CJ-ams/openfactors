@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
-from ops.local_stack import docker_available
+from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
 from ops.promote import promote_release
 from ops.releases import persist_manifest
@@ -109,7 +109,7 @@ def test_catalog_failure_returns_503_without_the_query() -> None:
 
 
 def test_live_catalog_lists_only_the_active_published_release() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to read the published catalog.")
     apply("dev")
     prior = _source_status()

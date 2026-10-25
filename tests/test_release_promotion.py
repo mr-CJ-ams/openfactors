@@ -9,7 +9,7 @@ from decimal import Decimal
 
 import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
-from ops.local_stack import compose_base, docker_available, load_secrets
+from ops.local_stack import compose_base, dev_database_ready, load_secrets
 from ops.migrate import apply, psql
 from ops.promote import PROMOTION_LOCK_KEY, promote_release, rollback_release
 from ops.releases import persist_manifest
@@ -19,7 +19,7 @@ DATASET_ID = "daily_external_factors_ph"
 
 
 def test_pointer_switch_failure_and_rollback_keep_a_whole_release() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to promote a release.")
     apply("dev")
     _terminate_lock_holder()

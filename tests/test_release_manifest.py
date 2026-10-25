@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
-from ops.local_stack import docker_available, load_secrets
+from ops.local_stack import dev_database_ready, load_secrets
 from ops.migrate import apply, psql
 from ops.releases import persist_manifest
 
@@ -105,7 +105,7 @@ def test_failed_gate_is_rejected_and_keeps_the_quality_link() -> None:
 
 
 def test_live_manifest_is_immutable_and_publish_stays_empty() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to audit a release manifest.")
     if not Path(sys.executable).with_name("dbt.exe").is_file():
         pytest.skip("dbt is not installed in the project environment.")

@@ -13,7 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
-from ops.local_stack import docker_available
+from ops.local_stack import dev_database_ready
 from ops.migrate import apply
 from ops.withdraw import suspend_source
 from tests.test_csv_export import _cleanup, _publish, _set_source_status, _source_status
@@ -86,7 +86,7 @@ def test_parquet_response_matches_the_pinned_rows() -> None:
 
 
 def test_live_parquet_matches_the_pinned_release() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to export a published release.")
     apply("dev")
     prior = _source_status()

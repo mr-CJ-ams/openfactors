@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
-from ops.local_stack import COMPOSE_FILE, docker_available
+from ops.local_stack import COMPOSE_FILE, dev_database_ready
 from ops.migrate import MIGRATIONS, apply, psql
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,7 +34,7 @@ def test_migration_grants_the_serving_view_and_nothing_else() -> None:
 
 
 def test_api_role_can_read_only_the_serving_view() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required for the OF-010 permission check.")
     apply("dev")
     allowed = psql("dev", "of_api", "SELECT * FROM publish.daily_factors;")

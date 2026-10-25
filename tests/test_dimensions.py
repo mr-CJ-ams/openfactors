@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from contracts.calendar import date_parts, manila_date, manila_today
 from ops.dimensions import approved_locations, load_locations, sync
-from ops.local_stack import docker_available
+from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -58,7 +58,7 @@ def test_approved_location_keys_match_the_pilot_fixture() -> None:
 
 
 def test_dev_database_holds_locations_and_the_manila_spine() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to load the core dimensions.")
     apply("dev")
     sync("dev")

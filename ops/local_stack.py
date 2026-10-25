@@ -11,6 +11,7 @@ import json
 import os
 import secrets
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -138,6 +139,18 @@ def docker_available() -> bool:
     except (OSError, subprocess.TimeoutExpired):
         return False
     return result.returncode == 0
+
+
+def dev_database_ready() -> bool:
+    """True when Docker is up and the local dev Postgres port accepts a connection."""
+    if not docker_available():
+        return False
+    port = int(ENVIRONMENTS["dev"]["postgres_port"])
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=2):
+            return True
+    except OSError:
+        return False
 
 
 def compose_base(environment: str) -> list[str]:

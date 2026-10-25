@@ -16,7 +16,7 @@ import pytest
 import yaml
 from contracts.calendar import date_parts
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
-from ops.local_stack import docker_available
+from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
 from ops.promote import promote_release
 from ops.releases import persist_manifest
@@ -172,7 +172,7 @@ def test_factor_failures_hide_the_database_error() -> None:
 
 
 def test_live_pin_stays_stable_when_a_newer_release_is_active() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to page a published release.")
     apply("dev")
     prior = _source_status()

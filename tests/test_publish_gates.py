@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
-from ops.local_stack import docker_available, load_secrets
+from ops.local_stack import dev_database_ready, load_secrets
 from ops.migrate import apply, psql
 
 from openfactors.quality.gates import INTERNAL_COLUMNS, evaluate, physical_type
@@ -84,7 +84,7 @@ def test_bad_fixtures_block_and_the_known_good_row_passes() -> None:
 
 
 def test_live_candidate_passes_and_published_rows_stay_put() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to gate the candidate mart.")
     if not Path(sys.executable).with_name("dbt.exe").is_file():
         pytest.skip("dbt is not installed in the project environment.")

@@ -7,7 +7,7 @@ import uuid
 
 import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
-from ops.local_stack import docker_available
+from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
 from ops.promote import promote_release
 from ops.releases import persist_manifest
@@ -20,7 +20,7 @@ ALLOWED_STATUS = {"unreviewed", "approved", "rejected", "suspended"}
 
 
 def test_suspended_source_withdraws_releases_and_purges_exports() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required for the takedown drill.")
     apply("dev")
     prior = _source_status()

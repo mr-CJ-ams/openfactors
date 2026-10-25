@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from ops.local_stack import docker_available, load_secrets
+from ops.local_stack import dev_database_ready, load_secrets
 from ops.migrate import apply, psql
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -205,7 +205,7 @@ def _rows(sql: str) -> list[str]:
 
 
 def test_staging_models_parse_units_and_rebuild_the_same_rows() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to build the staging models.")
     if not Path(sys.executable).with_name("dbt.exe").is_file():
         pytest.skip("dbt is not installed in the project environment.")

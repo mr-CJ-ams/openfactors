@@ -7,7 +7,7 @@ import urllib.request
 from pathlib import Path
 
 import pytest
-from ops.local_stack import COMPOSE_FILE, _psql, docker_available
+from ops.local_stack import COMPOSE_FILE, _psql, dev_database_ready
 from ops.migrate import apply, psql
 from tools.scan_secrets import find_secrets
 
@@ -125,7 +125,7 @@ def test_http_surface_rejects_writes_hidden_paths_and_secrets() -> None:
 
 
 def test_public_role_cannot_read_raw_data_or_connect_without_tls() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required for the permission and TLS checks.")
     apply("dev")
     before = _fact_count()

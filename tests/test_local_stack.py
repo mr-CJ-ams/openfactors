@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from ops.local_stack import COMPOSE_FILE, ENVIRONMENTS, ensure_secrets, runtime_dir
+from ops.local_stack import (
+    COMPOSE_FILE,
+    ENVIRONMENTS,
+    dev_database_ready,
+    ensure_secrets,
+    runtime_dir,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -40,3 +46,16 @@ def test_secrets_stay_under_the_gitignored_runtime_dir(tmp_path: Path, monkeypat
     assert "POSTGRES_PASSWORD=" in path.read_text(encoding="utf-8")
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert "ops/local/runtime/" in gitignore
+
+
+def test_live_checks_wait_until_the_dev_database_accepts_connections(monkeypatch) -> None:
+    monkeypatch.setattr("ops.local_stack.docker_available", lambda: False)
+    assert dev_database_ready() is False
+
+    monkeypatch.setattr("ops.local_stack.docker_available", lambda: True)
+
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise OSError("closed")
+
+    monkeypatch.setattr("ops.local_stack.socket.create_connection", refuse)
+    assert dev_database_ready() is False

@@ -11,7 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from ops.local_stack import docker_available, load_secrets
+from ops.local_stack import dev_database_ready, load_secrets
 from ops.migrate import apply, psql
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -278,7 +278,7 @@ def test_revision_fixture_rejects_a_publication_calendar() -> None:
 
 
 def test_one_weather_revision_and_one_holiday_broadcast() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to select revisions.")
     if not Path(sys.executable).with_name("dbt.exe").is_file():
         pytest.skip("dbt is not installed in the project environment.")

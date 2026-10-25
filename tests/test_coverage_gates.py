@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from contracts.calendar import date_parts
-from ops.local_stack import docker_available, load_secrets
+from ops.local_stack import dev_database_ready, load_secrets
 from ops.migrate import apply, psql
 
 from openfactors.quality.coverage import COVERAGE_DENOMINATOR, COVERAGE_NUMERATOR, evaluate_coverage
@@ -48,7 +48,7 @@ def test_threshold_and_exception_fixtures() -> None:
 
 
 def test_current_spine_reports_coverage_and_publish_stays_empty() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to measure the candidate coverage.")
     if not Path(sys.executable).with_name("dbt.exe").is_file():
         pytest.skip("dbt is not installed in the project environment.")

@@ -14,7 +14,7 @@ from http.server import ThreadingHTTPServer
 import pytest
 from contracts.calendar import date_parts
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
-from ops.local_stack import docker_available
+from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
 from ops.promote import promote_release
 from ops.releases import persist_manifest
@@ -109,7 +109,7 @@ def test_export_response_matches_the_pinned_rows() -> None:
 
 
 def test_live_csv_uses_the_pinned_release() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to export a published release.")
     apply("dev")
     prior = _source_status()

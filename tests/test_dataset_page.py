@@ -11,7 +11,7 @@ from http.server import ThreadingHTTPServer
 
 import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
-from ops.local_stack import docker_available
+from ops.local_stack import dev_database_ready
 from ops.migrate import apply
 
 from openfactors.api.catalog import (
@@ -191,7 +191,7 @@ def test_field_text_is_escaped_and_failures_add_no_release() -> None:
 
 
 def test_live_dictionary_page_lists_the_public_fields() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to read the published release.")
     apply("dev")
     server = catalog_server(

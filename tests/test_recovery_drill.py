@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from ops.local_stack import backup, docker_available, restore_isolated
+from ops.local_stack import backup, dev_database_ready, restore_isolated
 from ops.migrate import apply, psql
 from ops.promote import promote_release, rollback_release
 from ops.releases import persist_manifest
@@ -174,7 +174,7 @@ def test_a_failed_run_stays_failed_and_a_running_run_resumes() -> None:
 
 
 def test_isolated_restore_and_release_rollback() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required for the restore drill.")
     apply("dev")
     dump_path = backup("dev")

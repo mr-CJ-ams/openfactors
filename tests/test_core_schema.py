@@ -1,7 +1,7 @@
 """OF-016 dimension and source-fact constraints."""
 
 import pytest
-from ops.local_stack import docker_available
+from ops.local_stack import dev_database_ready
 from ops.migrate import MIGRATIONS, apply, psql
 
 RUN_ID = "00000000-0000-4000-8000-000000000016"
@@ -29,7 +29,7 @@ def test_migration_sql_declares_dimension_and_fact_constraints() -> None:
 
 
 def test_dev_database_enforces_dimensions_revisions_and_sources() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to apply the OF-016 migration.")
     apply("dev")
     privileges = psql(

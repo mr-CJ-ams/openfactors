@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from ops.local_stack import docker_available
+from ops.local_stack import dev_database_ready
 from ops.migrate import MIGRATIONS, apply, psql
 from ops.source_registry_seed import (
     RETENTION_FIXTURE,
@@ -68,7 +68,7 @@ def test_unknown_commercial_use_is_rejected() -> None:
 
 
 def test_dev_database_persists_a_run_and_rejects_manifest_changes() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to apply the OF-008 migration.")
     apply("dev")
     stored = psql(

@@ -15,7 +15,7 @@ from examples.join_factors import (
     render_sql,
     run_join,
 )
-from ops.local_stack import docker_available
+from ops.local_stack import dev_database_ready
 from ops.migrate import apply
 from ops.promote import promote_release
 from ops.releases import persist_manifest
@@ -64,7 +64,7 @@ def test_join_rejects_a_bad_pin_and_another_release() -> None:
 
 
 def test_sql_join_runs_on_the_pinned_release() -> None:
-    if not docker_available():
+    if not dev_database_ready():
         pytest.skip("Docker is required to run the example SQL.")
     apply("dev")
     prior = _source_status()
