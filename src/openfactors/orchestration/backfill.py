@@ -97,9 +97,7 @@ def run_backfill(
     """Validate one interval, then dry-run it or run it once."""
     _validate(request, now, locations=locations, sources=sources)
     if not request.dry_run and set(steps) != set(STEP_ORDER):
-        raise ConnectorError(
-            ErrorCategory.CONFIG, "The backfill steps do not match the pipeline."
-        )
+        raise ConnectorError(ErrorCategory.CONFIG, "The backfill steps do not match the pipeline.")
     if not PIPELINE_LOCK.acquire(blocking=False):
         raise ConnectorError(ErrorCategory.CONFIG, "A pipeline run is already in progress.")
     try:
@@ -358,9 +356,7 @@ def _source_ids(document: dict | None) -> set[str]:
 def _locations(document: dict | None) -> tuple[set[str], date]:
     payload = document if document is not None else _json(_LOCATIONS_PATH)
     chosen = {
-        item["location_id"]
-        for item in payload["locations"]
-        if item["approved_for_mvp"] is True
+        item["location_id"] for item in payload["locations"] if item["approved_for_mvp"] is True
     }
     return chosen, date.fromisoformat(payload["supported_start_date"])
 

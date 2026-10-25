@@ -105,9 +105,7 @@ def test_reliability_plan_does_not_claim_the_thirty_day_target() -> None:
     assert reliability["missing_telemetry_counts_as_success"] is False
     assert reliability["owner"] == "Founder / Product Lead"
 
-    enough = [
-        _run("daily", "succeeded", NOW - timedelta(days=day)) for day in range(1, 31)
-    ]
+    enough = [_run("daily", "succeeded", NOW - timedelta(days=day)) for day in range(1, 31)]
     claimed = _report([0.1], rows=[_row()], supported={(LOCATION, DAY)}, runs=enough)
     assert claimed["reliability"]["sample_meets_threshold"] is True
     assert claimed["reliability"]["slo_claimed"] is False

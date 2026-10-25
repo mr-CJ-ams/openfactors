@@ -279,7 +279,7 @@ def restore_isolated(environment: str, dump_path: Path) -> dict:
 def _load_drill_script() -> str:
     return (
         "psql --username of_admin --dbname postgres --command "
-        "\"SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+        '"SELECT pg_terminate_backend(pid) FROM pg_stat_activity '
         "WHERE datname = 'of_restore_drill' AND pid <> pg_backend_pid();\" "
         "&& psql --username of_admin --dbname postgres --command "
         "'DROP DATABASE IF EXISTS of_restore_drill' "
@@ -367,7 +367,7 @@ def _drop_drill(environment: str) -> None:
         "bash",
         "-lc",
         "psql --username of_admin --dbname postgres --command "
-        "\"SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+        '"SELECT pg_terminate_backend(pid) FROM pg_stat_activity '
         "WHERE datname = 'of_restore_drill' AND pid <> pg_backend_pid();\" "
         "&& psql --username of_admin --dbname postgres --command "
         "'DROP DATABASE IF EXISTS of_restore_drill'",

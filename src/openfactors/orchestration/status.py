@@ -108,9 +108,7 @@ def build_status(
         "pipeline": {
             "attempt_count": len(recorded),
             "success_count": sum(
-                1
-                for run in recorded
-                if run.status == "succeeded" and run.stream != DRY_RUN_STREAM
+                1 for run in recorded if run.status == "succeeded" and run.stream != DRY_RUN_STREAM
             ),
             "failure_count": sum(1 for run in recorded if run.status == "failed"),
             "runs": [_run_row(run) for run in _ordered(recorded)],

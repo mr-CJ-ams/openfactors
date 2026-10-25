@@ -110,9 +110,7 @@ def _run_locked(
     code_revision: str,
 ) -> RunRecord:
     if set(steps) != set(STEP_ORDER):
-        raise ConnectorError(
-            ErrorCategory.CONFIG, "The daily run steps do not match the pipeline."
-        )
+        raise ConnectorError(ErrorCategory.CONFIG, "The daily run steps do not match the pipeline.")
     if not code_revision.strip():
         raise ConnectorError(ErrorCategory.CONFIG, "Code revision is empty.")
     if policy.max_attempts < 1:
