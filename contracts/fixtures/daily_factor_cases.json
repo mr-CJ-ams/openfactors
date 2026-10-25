@@ -1,0 +1,345 @@
+{
+  "fixture_id": "daily_factor_cases_v1",
+  "ticket": "OF-009",
+  "purpose": "Published-row shapes for the 12-field contract. Weather numbers cited from the 2018-01-01 probe are source facts. Holiday flags and example names are shape tests, not Official Gazette proclamations. OF-013 fills the real calendar.",
+  "valid": [
+    {
+      "case_id": "measured_rain",
+      "probe_location_id": "ph-manila",
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-01",
+        "location_id": "ph-manila",
+        "country_code": "PH",
+        "temperature_mean_c": 26.1,
+        "precipitation_mm": 3.4,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "measured_zero",
+      "probe_location_id": "ph-baguio",
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-01",
+        "location_id": "ph-baguio",
+        "country_code": "PH",
+        "temperature_mean_c": 18.4,
+        "precipitation_mm": 0.0,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "missing_weather",
+      "source_temperature_c": null,
+      "source_precipitation_mm": null,
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-03",
+        "location_id": "ph-cebu-city",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "manila_saturday",
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-06",
+        "location_id": "ph-davao-city",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": true,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "manila_local_date",
+      "instant": "2018-01-01T16:30:00Z",
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-02",
+        "location_id": "ph-tacloban",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "one_holiday_name",
+      "not_a_proclamation": true,
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-04",
+        "location_id": "ph-manila",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": true,
+        "holiday_name": "Alpha Day",
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "two_holiday_names",
+      "not_a_proclamation": true,
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-05",
+        "location_id": "ph-manila",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": true,
+        "holiday_name": "Alpha Day | Beta Day",
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    }
+  ],
+  "omitted": [
+    {
+      "case_id": "incomplete_year_omitted",
+      "calendar_year": 2099,
+      "calendar_status": "incomplete",
+      "included_in_release": false
+    }
+  ],
+  "rejected": [
+    {
+      "case_id": "missing_stored_as_zero",
+      "expect": "missing_is_not_zero",
+      "source_precipitation_mm": null,
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-03",
+        "location_id": "ph-cebu-city",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": 0.0,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "negative_precipitation",
+      "expect": "negative_precipitation",
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-03",
+        "location_id": "ph-cebu-city",
+        "country_code": "PH",
+        "temperature_mean_c": 27.1,
+        "precipitation_mm": -0.1,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "holiday_false_with_name",
+      "expect": "holiday_name_forbidden",
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-04",
+        "location_id": "ph-manila",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": false,
+        "holiday_name": "Alpha Day",
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "holiday_true_without_name",
+      "expect": "holiday_name_required",
+      "not_a_proclamation": true,
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-04",
+        "location_id": "ph-manila",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": true,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "unsorted_holiday_names",
+      "expect": "holiday_names_unsorted",
+      "not_a_proclamation": true,
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-05",
+        "location_id": "ph-manila",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": true,
+        "holiday_name": "Beta Day | Alpha Day",
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "null_holiday_flag",
+      "expect": "holiday_flag_null",
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-04",
+        "location_id": "ph-manila",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": null,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "weekend_mismatch",
+      "expect": "weekend_mismatch",
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-01",
+        "location_id": "ph-manila",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": true,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "utc_date_used_as_local_date",
+      "expect": "manila_date_mismatch",
+      "instant": "2018-01-01T16:30:00Z",
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-01",
+        "location_id": "ph-tacloban",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "retrieval_time_used_as_update",
+      "expect": "retrieval_time_substituted",
+      "retrieved_at": "2026-10-24T00:00:00Z",
+      "calendar_status": "complete_shape_only",
+      "row": {
+        "date": "2018-01-03",
+        "location_id": "ph-cebu-city",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": "2026-10-24T00:00:00Z",
+        "dataset_version": "1.0.0"
+      }
+    },
+    {
+      "case_id": "incomplete_year_published_as_false",
+      "expect": "incomplete_year_published",
+      "calendar_status": "incomplete",
+      "row": {
+        "date": "2099-01-01",
+        "location_id": "ph-manila",
+        "country_code": "PH",
+        "temperature_mean_c": null,
+        "precipitation_mm": null,
+        "is_public_holiday": false,
+        "holiday_name": null,
+        "is_weekend": false,
+        "weather_source_id": "open-meteo-era5",
+        "holiday_source_id": "ph-official-gazette",
+        "source_updated_at": null,
+        "dataset_version": "1.0.0"
+      }
+    }
+  ]
+}

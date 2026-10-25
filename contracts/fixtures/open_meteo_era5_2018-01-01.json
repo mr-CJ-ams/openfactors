@@ -1,0 +1,71 @@
+{
+  "fixture_id": "open_meteo_era5_probe_2018-01-01",
+  "source_id": "open-meteo-era5",
+  "retrieved_on": "2026-10-24",
+  "purpose": "D-02 evidence that the approved weather source returns 2018-01-01 for every pilot city. Not a published release.",
+  "request": {
+    "endpoint": "https://archive-api.open-meteo.com/v1/archive",
+    "models": "era5",
+    "timezone": "Asia/Manila",
+    "start_date": "2018-01-01",
+    "end_date": "2018-01-01",
+    "daily": ["temperature_2m_mean", "precipitation_sum"]
+  },
+  "rows": [
+    {
+      "location_id": "ph-manila",
+      "requested_latitude": 14.5906,
+      "requested_longitude": 120.9799,
+      "grid_latitude": 14.5,
+      "grid_longitude": 121.0,
+      "elevation_m": 4.0,
+      "date": "2018-01-01",
+      "temperature_2m_mean_c": 26.1,
+      "precipitation_sum_mm": 3.4
+    },
+    {
+      "location_id": "ph-baguio",
+      "requested_latitude": 16.4119,
+      "requested_longitude": 120.5933,
+      "grid_latitude": 16.5,
+      "grid_longitude": 120.5,
+      "elevation_m": 1447.0,
+      "date": "2018-01-01",
+      "temperature_2m_mean_c": 18.4,
+      "precipitation_sum_mm": 0.0
+    },
+    {
+      "location_id": "ph-cebu-city",
+      "requested_latitude": 10.309,
+      "requested_longitude": 123.893,
+      "grid_latitude": 10.25,
+      "grid_longitude": 123.75,
+      "elevation_m": 34.0,
+      "date": "2018-01-01",
+      "temperature_2m_mean_c": 27.1,
+      "precipitation_sum_mm": 36.9
+    },
+    {
+      "location_id": "ph-tacloban",
+      "requested_latitude": 11.243,
+      "requested_longitude": 125.0081,
+      "grid_latitude": 11.25,
+      "grid_longitude": 125.25,
+      "elevation_m": 16.0,
+      "date": "2018-01-01",
+      "temperature_2m_mean_c": 26.0,
+      "precipitation_sum_mm": 52.3
+    },
+    {
+      "location_id": "ph-davao-city",
+      "requested_latitude": 7.0639,
+      "requested_longitude": 125.6083,
+      "grid_latitude": 7.0,
+      "grid_longitude": 125.5,
+      "elevation_m": 8.0,
+      "date": "2018-01-01",
+      "temperature_2m_mean_c": 27.3,
+      "precipitation_sum_mm": 11.9
+    }
+  ]
+}

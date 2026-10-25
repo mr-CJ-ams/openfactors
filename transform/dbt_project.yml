@@ -1,0 +1,20 @@
+name: openfactors
+version: "1.0.0"
+profile: openfactors
+vars:
+  dataset_version: "1.0.0"
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages", "logs"]
+models:
+  openfactors:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    core:
+      +materialized: view
+    marts:
+      +materialized: view

@@ -1,0 +1,31 @@
+#!/bin/bash
+# Runs once, when the Postgres data directory is first created.
+set -euo pipefail
+
+sql_escape() {
+  printf "%s" "$1" | sed "s/'/''/g"
+}
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<SQL
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+
+CREATE SCHEMA IF NOT EXISTS control;
+CREATE SCHEMA IF NOT EXISTS staging;
+CREATE SCHEMA IF NOT EXISTS core;
+CREATE SCHEMA IF NOT EXISTS quality;
+CREATE SCHEMA IF NOT EXISTS publish;
+
+REVOKE ALL ON SCHEMA control, staging, core, quality, publish FROM PUBLIC;
+
+CREATE ROLE of_migrate LOGIN PASSWORD '$(sql_escape "$OF_MIGRATE_PASSWORD")' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+CREATE ROLE of_ingest LOGIN PASSWORD '$(sql_escape "$OF_INGEST_PASSWORD")' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+CREATE ROLE of_transform LOGIN PASSWORD '$(sql_escape "$OF_TRANSFORM_PASSWORD")' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+CREATE ROLE of_publish LOGIN PASSWORD '$(sql_escape "$OF_PUBLISH_PASSWORD")' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+CREATE ROLE of_api LOGIN PASSWORD '$(sql_escape "$OF_API_PASSWORD")' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+
+GRANT USAGE, CREATE ON SCHEMA control, staging, core, quality, publish TO of_migrate;
+GRANT USAGE, CREATE ON SCHEMA control TO of_ingest;
+GRANT USAGE, CREATE ON SCHEMA staging, core TO of_transform;
+GRANT USAGE, CREATE ON SCHEMA quality, publish TO of_publish;
+GRANT USAGE ON SCHEMA publish TO of_api;
+SQL

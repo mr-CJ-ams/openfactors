@@ -1,0 +1,44 @@
+{
+  "fixture_id": "retention_policy_v1",
+  "decision": "D-08",
+  "ticket": "OF-004",
+  "narrative": "docs/decisions/ADR-004-retention-and-withdrawal.md",
+  "status": "working_baseline",
+  "adopted_on": "2026-10-24",
+  "applies_while": "monthly cost cap is USD 0 and the environment is local Docker only",
+  "raw_files": {
+    "mode": "until_source_withdrawn",
+    "automatic_expiry_days": null,
+    "retention_until": null,
+    "schema_followup": "Reconciled in OF-005. retention_mode until_source_withdrawn keeps raw_retention_days null."
+  },
+  "successful_releases": {
+    "mode": "keep_all",
+    "expire_after_days": null,
+    "release_id_reused": false
+  },
+  "revisions": {
+    "content_change": "new release_id",
+    "schema_or_meaning_change": "new dataset_version",
+    "breaking_schema_change": "new major dataset_version, outside this baseline"
+  },
+  "failed_candidate": {
+    "status": "rejected",
+    "active_pointer": "unchanged",
+    "served": false
+  },
+  "withdrawal": {
+    "release_status": "withdrawn",
+    "source_status": "suspended",
+    "active_pointer": "newest remaining published release, or empty",
+    "local_exports": "delete files for the withdrawn release_id in the same operator action",
+    "http_status": 404,
+    "public_cache": "none",
+    "suspended_source_effect": "withdraw every published release that includes that source"
+  },
+  "copies": {
+    "location": "this computer only",
+    "offsite_backup": false,
+    "disk_loss": "reingest; no backup to restore"
+  }
+}

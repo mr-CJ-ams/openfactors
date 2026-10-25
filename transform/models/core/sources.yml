@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: openfactors_core
+    schema: core
+    tables:
+      - name: dim_location
+      - name: dim_date

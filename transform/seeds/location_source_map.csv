@@ -1,0 +1,6 @@
+location_id,weather_source_id,holiday_source_id
+ph-manila,open-meteo-era5,ph-official-gazette
+ph-baguio,open-meteo-era5,ph-official-gazette
+ph-cebu-city,open-meteo-era5,ph-official-gazette
+ph-tacloban,open-meteo-era5,ph-official-gazette
+ph-davao-city,open-meteo-era5,ph-official-gazette

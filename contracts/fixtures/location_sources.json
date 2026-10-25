@@ -1,0 +1,30 @@
+{
+  "fixture_id": "location_sources_v1",
+  "locations": [
+    {
+      "location_id": "ph-manila",
+      "weather_source_id": "open-meteo-era5",
+      "holiday_source_id": "ph-official-gazette"
+    },
+    {
+      "location_id": "ph-baguio",
+      "weather_source_id": "open-meteo-era5",
+      "holiday_source_id": "ph-official-gazette"
+    },
+    {
+      "location_id": "ph-cebu-city",
+      "weather_source_id": "open-meteo-era5",
+      "holiday_source_id": "ph-official-gazette"
+    },
+    {
+      "location_id": "ph-tacloban",
+      "weather_source_id": "open-meteo-era5",
+      "holiday_source_id": "ph-official-gazette"
+    },
+    {
+      "location_id": "ph-davao-city",
+      "weather_source_id": "open-meteo-era5",
+      "holiday_source_id": "ph-official-gazette"
+    }
+  ]
+}

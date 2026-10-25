@@ -1,0 +1,164 @@
+{
+  "fixture_id": "holiday_calendar_cases_v1",
+  "not_a_proclamation": true,
+  "purpose": "D-03 shape tests for OF-013. Dates and names are not Official Gazette proclamations.",
+  "valid": [
+    {
+      "case_id": "national_regular",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": "Alpha Day", "category": "regular", "scope": "national", "date": "2099-01-04"}
+      ],
+      "expect_status": "complete",
+      "days": [
+        {"date": "2099-01-04", "included_in_release": true, "is_public_holiday": true, "holiday_name": "Alpha Day"},
+        {"date": "2099-01-03", "included_in_release": true, "is_public_holiday": false, "holiday_name": null},
+        {"date": "2098-01-04", "included_in_release": false, "is_public_holiday": null, "holiday_name": null}
+      ]
+    },
+    {
+      "case_id": "special_non_working",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": "Alpha Day", "category": "special_non_working", "scope": "national", "date": "2099-01-04"}
+      ],
+      "expect_status": "complete",
+      "days": [
+        {"date": "2099-01-04", "included_in_release": true, "is_public_holiday": true, "holiday_name": "Alpha Day"}
+      ]
+    },
+    {
+      "case_id": "two_names_sorted",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": "Beta Day", "category": "regular", "scope": "national", "date": "2099-01-05"},
+        {"name": "Alpha Day", "category": "special_non_working", "scope": "national", "date": "2099-01-05"}
+      ],
+      "expect_status": "complete",
+      "days": [
+        {"date": "2099-01-05", "included_in_release": true, "is_public_holiday": true, "holiday_name": "Alpha Day | Beta Day"}
+      ]
+    },
+    {
+      "case_id": "duplicate_name_collapsed",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": " Alpha Day ", "category": "regular", "scope": "national", "date": "2099-01-04"},
+        {"name": "Alpha Day", "category": "regular", "scope": "national", "date": "2099-01-04"}
+      ],
+      "expect_status": "complete",
+      "days": [
+        {"date": "2099-01-04", "included_in_release": true, "is_public_holiday": true, "holiday_name": "Alpha Day"}
+      ]
+    },
+    {
+      "case_id": "local_does_not_set_flag",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": "Alpha Day", "category": "regular", "scope": "national", "date": "2099-01-04"},
+        {"name": "Local Example Day", "category": "local", "scope": "local", "date": "2099-01-06"}
+      ],
+      "expect_status": "complete",
+      "days": [
+        {"date": "2099-01-04", "included_in_release": true, "is_public_holiday": true, "holiday_name": "Alpha Day"},
+        {"date": "2099-01-06", "included_in_release": true, "is_public_holiday": false, "holiday_name": null}
+      ]
+    },
+    {
+      "case_id": "special_working_does_not_set_flag",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": "Alpha Day", "category": "regular", "scope": "national", "date": "2099-01-04"},
+        {"name": "Working Example Day", "category": "special_working", "scope": "national", "date": "2099-01-08"}
+      ],
+      "expect_status": "complete",
+      "days": [
+        {"date": "2099-01-08", "included_in_release": true, "is_public_holiday": false, "holiday_name": null}
+      ]
+    },
+    {
+      "case_id": "national_and_local_same_day",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": "Local Example Day", "category": "local", "scope": "local", "date": "2099-01-04"},
+        {"name": "Alpha Day", "category": "regular", "scope": "national", "date": "2099-01-04"}
+      ],
+      "expect_status": "complete",
+      "days": [
+        {"date": "2099-01-04", "included_in_release": true, "is_public_holiday": true, "holiday_name": "Alpha Day"}
+      ]
+    },
+    {
+      "case_id": "declared_incomplete_omits_known_day",
+      "year": 2099,
+      "declared_status": "incomplete",
+      "observances": [
+        {"name": "Alpha Day", "category": "regular", "scope": "national", "date": "2099-01-04"}
+      ],
+      "expect_status": "incomplete",
+      "days": [
+        {"date": "2099-01-04", "included_in_release": false, "is_public_holiday": null, "holiday_name": null},
+        {"date": "2099-01-03", "included_in_release": false, "is_public_holiday": null, "holiday_name": null}
+      ]
+    },
+    {
+      "case_id": "unresolved_date_omits_year",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": "Alpha Day", "category": "regular", "scope": "national", "date": "2099-01-04"},
+        {"name": "Movable Example Day", "category": "regular", "scope": "national", "date": null}
+      ],
+      "expect_status": "incomplete",
+      "days": [
+        {"date": "2099-01-04", "included_in_release": false, "is_public_holiday": null, "holiday_name": null},
+        {"date": "2099-01-03", "included_in_release": false, "is_public_holiday": null, "holiday_name": null}
+      ]
+    },
+    {
+      "case_id": "local_only_does_not_complete_year",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": "Local Example Day", "category": "local", "scope": "local", "date": "2099-01-06"}
+      ],
+      "expect_status": "incomplete",
+      "days": [
+        {"date": "2099-01-06", "included_in_release": false, "is_public_holiday": null, "holiday_name": null}
+      ]
+    }
+  ],
+  "rejected": [
+    {
+      "case_id": "empty_name",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": " ", "category": "regular", "scope": "national", "date": "2099-01-04"}
+      ]
+    },
+    {
+      "case_id": "unknown_category",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": "Alpha Day", "category": "vendor", "scope": "national", "date": "2099-01-04"}
+      ]
+    },
+    {
+      "case_id": "date_outside_year",
+      "year": 2099,
+      "declared_status": "complete",
+      "observances": [
+        {"name": "Alpha Day", "category": "regular", "scope": "national", "date": "2100-01-01"}
+      ]
+    }
+  ]
+}

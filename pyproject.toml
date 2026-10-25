@@ -1,0 +1,35 @@
+[project]
+name = "openfactors"
+version = "0.1.0"
+description = "Analytics-ready daily external factors for the Philippines."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.1.1",
+  "ruff==0.17.2",
+  "dbt-core==1.12.6",
+  "dbt-postgres==1.11.0",
+  "pyarrow==26.0.0",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["src", "tools", "tests", "contracts", "ops"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,118 @@
+{
+  "fixture_id": "coverage_cases_v1",
+  "not_a_proclamation": true,
+  "row_coverage_minimum": "0.99",
+  "location_id": "ph-manila",
+  "shape_holiday_name": "Shape Day",
+  "public_exception_reason": "Documented fixture gap",
+  "cases": [
+    {
+      "name": "exactly_99_percent",
+      "dates": 100,
+      "present": 99,
+      "expect": "PASS",
+      "expected_count": 100,
+      "present_count": 99,
+      "excluded_count": 0,
+      "weather_present": 99
+    },
+    {
+      "name": "below_99_percent",
+      "dates": 100,
+      "present": 98,
+      "expect": ["coverage"],
+      "expected_count": 100,
+      "present_count": 98,
+      "excluded_count": 0,
+      "weather_present": 98
+    },
+    {
+      "name": "public_exception",
+      "dates": 100,
+      "present": 98,
+      "public_exclusions": 2,
+      "expect": "PASS",
+      "expected_count": 98,
+      "present_count": 98,
+      "excluded_count": 2,
+      "weather_present": 98
+    },
+    {
+      "name": "silent_exception",
+      "dates": 100,
+      "present": 98,
+      "silent_exclusions": 2,
+      "expect": ["coverage"],
+      "expected_count": 100,
+      "present_count": 98,
+      "excluded_count": 0,
+      "weather_present": 98
+    },
+    {
+      "name": "negative_precipitation",
+      "dates": 100,
+      "present": 100,
+      "negative": true,
+      "expect": ["negative_precipitation"],
+      "expected_count": 100,
+      "present_count": 100,
+      "excluded_count": 0,
+      "weather_present": 100
+    },
+    {
+      "name": "unverified_date",
+      "dates": 100,
+      "present": 100,
+      "omit_verified": 1,
+      "expect": ["unverified_calendar"],
+      "expected_count": 100,
+      "present_count": 100,
+      "excluded_count": 0,
+      "weather_present": 100
+    },
+    {
+      "name": "unknown_holiday",
+      "dates": 100,
+      "present": 100,
+      "unknown_holiday": true,
+      "expect": ["unknown_holiday"],
+      "expected_count": 100,
+      "present_count": 100,
+      "excluded_count": 0,
+      "weather_present": 100
+    },
+    {
+      "name": "holiday_mismatch",
+      "dates": 100,
+      "present": 100,
+      "holiday_mismatch": true,
+      "expect": ["holiday_mismatch"],
+      "expected_count": 100,
+      "present_count": 100,
+      "excluded_count": 0,
+      "weather_present": 100
+    },
+    {
+      "name": "weekend_mismatch",
+      "dates": 100,
+      "present": 100,
+      "weekend_mismatch": true,
+      "expect": ["weekend_mismatch"],
+      "expected_count": 100,
+      "present_count": 100,
+      "excluded_count": 0,
+      "weather_present": 100
+    },
+    {
+      "name": "null_weather_still_counts",
+      "dates": 100,
+      "present": 100,
+      "null_weather": 50,
+      "expect": "PASS",
+      "expected_count": 100,
+      "present_count": 100,
+      "excluded_count": 0,
+      "weather_present": 50
+    }
+  ]
+}

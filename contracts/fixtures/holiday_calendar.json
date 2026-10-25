@@ -1,0 +1,1712 @@
+{
+  "fixture_id": "holiday_calendar_v1",
+  "source_id": "ph-official-gazette",
+  "decision": "D-03",
+  "narrative": "docs/decisions/source-registry.md",
+  "status": "transcribed",
+  "reviewed_on": "2026-10-25",
+  "scope": "nationwide",
+  "categories_in_mvp": [
+    "regular",
+    "special_non_working"
+  ],
+  "categories_excluded": [
+    "local",
+    "special_working"
+  ],
+  "unknown_rule": "Published is_public_holiday is true or false only. Dates in an incomplete year are omitted from the release.",
+  "duplicate_name_rule": "alphabetical join with ' | '",
+  "transcription": "Years 2018 through 2026 were read from presidential proclamations on https://www.officialgazette.gov.ph/ on 2026-10-25. A later proclamation replaces the annual list when it amends that list. Eid dates come from the proclamation that sets the date. Special working days are recorded and do not set the public flag. Shape tests are stored separately and are not proclamations.",
+  "years": [
+    {
+      "year": 2018,
+      "declared_status": "complete",
+      "proclamation_id": "Proclamation No. 269, s. 2017",
+      "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/",
+      "proclamations": [
+        {
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 514, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/06/06/proclamation-no-514-s-2018/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 556, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-556-s-2018/"
+        }
+      ],
+      "observances": [
+        {
+          "name": "New Year's Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-01-01",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Chinese New Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2018-02-16",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "EDSA People Power Revolution Anniversary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2018-02-25",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Maundy Thursday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-03-29",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Good Friday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-03-30",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Black Saturday",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2018-03-31",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Araw ng Kagitingan",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-04-09",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Labor Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-05-01",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Independence Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-06-12",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Eid'l Fitr",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-06-15",
+          "proclamation_id": "Proclamation No. 514, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/06/06/proclamation-no-514-s-2018/"
+        },
+        {
+          "name": "Eid'l Adha",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-08-21",
+          "proclamation_id": "Proclamation No. 556, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-556-s-2018/"
+        },
+        {
+          "name": "Ninoy Aquino Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2018-08-21",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "National Heroes Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-08-27",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "All Saints' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2018-11-01",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Additional special (non-working) day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2018-11-02",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Bonifacio Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-11-30",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Additional special (non-working) day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2018-12-24",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Christmas Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-12-25",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Rizal Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2018-12-30",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        },
+        {
+          "name": "Last Day of the Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2018-12-31",
+          "proclamation_id": "Proclamation No. 269, s. 2017",
+          "source_url": "https://www.officialgazette.gov.ph/2017/07/17/proclamation-no-269-s-2017/"
+        }
+      ]
+    },
+    {
+      "year": 2019,
+      "declared_status": "complete",
+      "proclamation_id": "Proclamation No. 555, s. 2018",
+      "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/",
+      "proclamations": [
+        {
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 729, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/05/28/proclamation-no-729-s-2019/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 789, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/08/08/proclamation-no-789s-2019/"
+        }
+      ],
+      "observances": [
+        {
+          "name": "New Year's Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-01-01",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Chinese New Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2019-02-05",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "EDSA People Power Revolution Anniversary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2019-02-25",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Araw ng Kagitingan",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-04-09",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Maundy Thursday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-04-18",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Good Friday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-04-19",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Black Saturday",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2019-04-20",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Labor Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-05-01",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Eid'l Fitr",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-06-05",
+          "proclamation_id": "Proclamation No. 729, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/05/28/proclamation-no-729-s-2019/"
+        },
+        {
+          "name": "Independence Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-06-12",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Eid'l Adha",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-08-12",
+          "proclamation_id": "Proclamation No. 789, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/08/08/proclamation-no-789s-2019/"
+        },
+        {
+          "name": "Ninoy Aquino Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2019-08-21",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "National Heroes Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-08-26",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "All Saints' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2019-11-01",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Additional special (non-working) day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2019-11-02",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Bonifacio Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-11-30",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Feast of the Immaculate Conception of Mary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2019-12-08",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Additional special (non-working) day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2019-12-24",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Christmas Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-12-25",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Rizal Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2019-12-30",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        },
+        {
+          "name": "Last Day of the Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2019-12-31",
+          "proclamation_id": "Proclamation No. 555, s. 2018",
+          "source_url": "https://www.officialgazette.gov.ph/2018/08/15/proclamation-no-555-s-2018/"
+        }
+      ]
+    },
+    {
+      "year": 2020,
+      "declared_status": "complete",
+      "proclamation_id": "Proclamation No. 845, s. 2019",
+      "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/",
+      "proclamations": [
+        {
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 944, s. 2020",
+          "source_url": "https://www.officialgazette.gov.ph/2020/05/19/proclamation-no-944-s-2020/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 985, s. 2020",
+          "source_url": "https://www.officialgazette.gov.ph/2020/07/29/proclamation-no-985-s-2020/"
+        }
+      ],
+      "observances": [
+        {
+          "name": "New Year's Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-01-01",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Chinese New Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2020-01-25",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "EDSA People Power Revolution Anniversary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2020-02-25",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Araw ng Kagitingan",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-04-09",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Maundy Thursday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-04-09",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Good Friday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-04-10",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Black Saturday",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2020-04-11",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Labor Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-05-01",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Eid'l Fitr",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-05-25",
+          "proclamation_id": "Proclamation No. 944, s. 2020",
+          "source_url": "https://www.officialgazette.gov.ph/2020/05/19/proclamation-no-944-s-2020/"
+        },
+        {
+          "name": "Independence Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-06-12",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Eid'l Adha",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-07-31",
+          "proclamation_id": "Proclamation No. 985, s. 2020",
+          "source_url": "https://www.officialgazette.gov.ph/2020/07/29/proclamation-no-985-s-2020/"
+        },
+        {
+          "name": "Ninoy Aquino Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2020-08-21",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "National Heroes Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-08-31",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "All Saints' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2020-11-01",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Additional special (non-working) day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2020-11-02",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Bonifacio Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-11-30",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Feast of the Immaculate Conception of Mary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2020-12-08",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Additional special (non-working) day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2020-12-24",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Christmas Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-12-25",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Rizal Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2020-12-30",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        },
+        {
+          "name": "Last Day of the Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2020-12-31",
+          "proclamation_id": "Proclamation No. 845, s. 2019",
+          "source_url": "https://www.officialgazette.gov.ph/2019/11/15/proclamation-no-845-s-2019/"
+        }
+      ]
+    },
+    {
+      "year": 2021,
+      "declared_status": "complete",
+      "proclamation_id": "Proclamation No. 1107, s. 2021",
+      "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/",
+      "proclamations": [
+        {
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 1142, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/05/10/proclamation-no-1142-s-2021/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 1189, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/07/15/proclamation-no-1189-s-2021/"
+        }
+      ],
+      "observances": [
+        {
+          "name": "New Year's Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-01-01",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Chinese New Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2021-02-12",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "EDSA People Power Revolution",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2021-02-25",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Maundy Thursday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-04-01",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Good Friday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-04-02",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Black Saturday",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2021-04-03",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Araw ng Kagitingan",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-04-09",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Labor Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-05-01",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Eid'l Fitr",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-05-13",
+          "proclamation_id": "Proclamation No. 1142, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/05/10/proclamation-no-1142-s-2021/"
+        },
+        {
+          "name": "Independence Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-06-12",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Eid'l Adha",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-07-20",
+          "proclamation_id": "Proclamation No. 1189, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/07/15/proclamation-no-1189-s-2021/"
+        },
+        {
+          "name": "Ninoy Aquino Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2021-08-21",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "National Heroes Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-08-30",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "All Saints' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2021-11-01",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "All Souls' Day",
+          "category": "special_working",
+          "scope": "national",
+          "date": "2021-11-02",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Bonifacio Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-11-30",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Feast of the Immaculate Conception of Mary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2021-12-08",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Christmas Eve",
+          "category": "special_working",
+          "scope": "national",
+          "date": "2021-12-24",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Christmas Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-12-25",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Rizal Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2021-12-30",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        },
+        {
+          "name": "Last Day of the Year",
+          "category": "special_working",
+          "scope": "national",
+          "date": "2021-12-31",
+          "proclamation_id": "Proclamation No. 1107, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/02/26/proclamation-no-1107-s-2021/"
+        }
+      ]
+    },
+    {
+      "year": 2022,
+      "declared_status": "complete",
+      "proclamation_id": "Proclamation No. 1236, s. 2021",
+      "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/",
+      "proclamations": [
+        {
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 1356, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/05/01/proclamation-no-1356-s-2022/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 2, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/07/05/proclamation-no-2-s-2022/"
+        }
+      ],
+      "observances": [
+        {
+          "name": "New Year's Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-01-01",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Chinese New Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2022-02-01",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "EDSA People Power Revolution Anniversary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2022-02-25",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Araw ng Kagitingan",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-04-09",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Maundy Thursday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-04-14",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Good Friday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-04-15",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Black Saturday",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2022-04-16",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Labor Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-05-01",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Eid'l Fitr",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-05-03",
+          "proclamation_id": "Proclamation No. 1356, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/05/01/proclamation-no-1356-s-2022/"
+        },
+        {
+          "name": "Independence Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-06-12",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Eid'l Adha",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-07-09",
+          "proclamation_id": "Proclamation No. 2, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/07/05/proclamation-no-2-s-2022/"
+        },
+        {
+          "name": "Ninoy Aquino Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2022-08-21",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "National Heroes Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-08-29",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "All Saints' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2022-11-01",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "All Souls' Day",
+          "category": "special_working",
+          "scope": "national",
+          "date": "2022-11-02",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Bonifacio Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-11-30",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Feast of the Immaculate Conception of Mary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2022-12-08",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Christmas Eve",
+          "category": "special_working",
+          "scope": "national",
+          "date": "2022-12-24",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Christmas Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-12-25",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Rizal Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2022-12-30",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        },
+        {
+          "name": "Last Day of the Year",
+          "category": "special_working",
+          "scope": "national",
+          "date": "2022-12-31",
+          "proclamation_id": "Proclamation No. 1236, s. 2021",
+          "source_url": "https://www.officialgazette.gov.ph/2021/10/29/proclamation-no-1236-s-2021/"
+        }
+      ]
+    },
+    {
+      "year": 2023,
+      "declared_status": "complete",
+      "proclamation_id": "Proclamation No. 90, s. 2022",
+      "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/",
+      "proclamations": [
+        {
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 201, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/04/14/proclamation-no-201-s-2023/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 258, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/06/13/proclamation-no-258-s-2023/"
+        }
+      ],
+      "observances": [
+        {
+          "name": "New Year's Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-01-01",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Additional special (non-working) day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2023-01-02",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "EDSA People Power Revolution Anniversary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2023-02-25",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Maundy Thursday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-04-06",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Good Friday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-04-07",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Black Saturday",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2023-04-08",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Araw ng Kagitingan",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-04-10",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Eid'l Fitr",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-04-21",
+          "proclamation_id": "Proclamation No. 201, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/04/14/proclamation-no-201-s-2023/"
+        },
+        {
+          "name": "Labor Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-05-01",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Independence Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-06-12",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Eid'l Adha",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-06-28",
+          "proclamation_id": "Proclamation No. 258, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/06/13/proclamation-no-258-s-2023/"
+        },
+        {
+          "name": "Ninoy Aquino Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2023-08-21",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "National Heroes Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-08-28",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "All Saints' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2023-11-01",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Additional special (non-working) day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2023-11-02",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Bonifacio Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-11-27",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Feast of the Immaculate Conception of Mary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2023-12-08",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Christmas Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-12-25",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Rizal Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2023-12-30",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        },
+        {
+          "name": "Last Day of the Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2023-12-31",
+          "proclamation_id": "Proclamation No. 90, s. 2022",
+          "source_url": "https://www.officialgazette.gov.ph/2022/11/09/proclamation-no-90-s-2022/"
+        }
+      ]
+    },
+    {
+      "year": 2024,
+      "declared_status": "complete",
+      "proclamation_id": "Proclamation No. 368, s. 2023",
+      "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/",
+      "proclamations": [
+        {
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 665, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/08/15/proclamation-no-665-s-2024/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 514, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/04/04/proclamation-no-514-s-2024/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 579, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/06/04/proclamation-no-579-s-2024/"
+        }
+      ],
+      "observances": [
+        {
+          "name": "New Year's Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-01-01",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Chinese New Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2024-02-10",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Maundy Thursday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-03-28",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Good Friday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-03-29",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Black Saturday",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2024-03-30",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Araw ng Kagitingan",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-04-09",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Eid'l Fitr",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-04-10",
+          "proclamation_id": "Proclamation No. 514, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/04/04/proclamation-no-514-s-2024/"
+        },
+        {
+          "name": "Labor Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-05-01",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Independence Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-06-12",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Eid'l Adha",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-06-17",
+          "proclamation_id": "Proclamation No. 579, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/06/04/proclamation-no-579-s-2024/"
+        },
+        {
+          "name": "Ninoy Aquino Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2024-08-23",
+          "proclamation_id": "Proclamation No. 665, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/08/15/proclamation-no-665-s-2024/"
+        },
+        {
+          "name": "National Heroes Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-08-26",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "All Saints' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2024-11-01",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "All Souls' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2024-11-02",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Bonifacio Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-11-30",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Feast of the Immaculate Conception of Mary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2024-12-08",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Christmas Eve",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2024-12-24",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Christmas Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-12-25",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Rizal Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2024-12-30",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        },
+        {
+          "name": "Last Day of the Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2024-12-31",
+          "proclamation_id": "Proclamation No. 368, s. 2023",
+          "source_url": "https://www.officialgazette.gov.ph/2023/10/11/proclamation-no-368-s-2023/"
+        }
+      ]
+    },
+    {
+      "year": 2025,
+      "declared_status": "complete",
+      "proclamation_id": "Proclamation No. 727, s. 2024",
+      "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/",
+      "proclamations": [
+        {
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 839, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/03/20/proclamation-no-839-s-2025/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 911, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/05/21/proclamation-no-911-s-2025/"
+        }
+      ],
+      "observances": [
+        {
+          "name": "New Year's Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-01-01",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Chinese New Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2025-01-29",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "EDSA People Power Revolution Anniversary",
+          "category": "special_working",
+          "scope": "national",
+          "date": "2025-02-25",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Eid'l Fitr",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-04-01",
+          "proclamation_id": "Proclamation No. 839, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/03/20/proclamation-no-839-s-2025/"
+        },
+        {
+          "name": "Araw ng Kagitingan",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-04-09",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Maundy Thursday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-04-17",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Good Friday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-04-18",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Black Saturday",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2025-04-19",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Labor Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-05-01",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Eidul Adha",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-06-06",
+          "proclamation_id": "Proclamation No. 911, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/05/21/proclamation-no-911-s-2025/"
+        },
+        {
+          "name": "Independence Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-06-12",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Ninoy Aquino Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2025-08-21",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "National Heroes Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-08-25",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "All Saints' Day Eve",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2025-10-31",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "All Saints' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2025-11-01",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Bonifacio Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-11-30",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Feast of the Immaculate Conception of Mary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2025-12-08",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Christmas Eve",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2025-12-24",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Christmas Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-12-25",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Rizal Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2025-12-30",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        },
+        {
+          "name": "Last Day of the Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2025-12-31",
+          "proclamation_id": "Proclamation No. 727, s. 2024",
+          "source_url": "https://www.officialgazette.gov.ph/2024/10/30/proclamation-no-727-s-2024/"
+        }
+      ]
+    },
+    {
+      "year": 2026,
+      "declared_status": "complete",
+      "proclamation_id": "Proclamation No. 1006, s. 2025",
+      "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/",
+      "proclamations": [
+        {
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 1189, s. 2026",
+          "source_url": "https://www.officialgazette.gov.ph/2026/03/12/proclamation-no-1189-s-2026/"
+        },
+        {
+          "proclamation_id": "Proclamation No. 1264, s. 2026",
+          "source_url": "https://www.officialgazette.gov.ph/2026/05/21/proclamation-no-1264-s-2026/"
+        }
+      ],
+      "observances": [
+        {
+          "name": "New Year's Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-01-01",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Chinese New Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2026-02-17",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "EDSA People Power Revolution Anniversary",
+          "category": "special_working",
+          "scope": "national",
+          "date": "2026-02-25",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Eid'l Fitr",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-03-20",
+          "proclamation_id": "Proclamation No. 1189, s. 2026",
+          "source_url": "https://www.officialgazette.gov.ph/2026/03/12/proclamation-no-1189-s-2026/"
+        },
+        {
+          "name": "Maundy Thursday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-04-02",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Good Friday",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-04-03",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Black Saturday",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2026-04-04",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Araw ng Kagitingan",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-04-09",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Labor Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-05-01",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Eid'l Adha",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-05-27",
+          "proclamation_id": "Proclamation No. 1264, s. 2026",
+          "source_url": "https://www.officialgazette.gov.ph/2026/05/21/proclamation-no-1264-s-2026/"
+        },
+        {
+          "name": "Independence Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-06-12",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Ninoy Aquino Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2026-08-21",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "National Heroes Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-08-31",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "All Saints' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2026-11-01",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "All Souls' Day",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2026-11-02",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Bonifacio Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-11-30",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Feast of the Immaculate Conception of Mary",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2026-12-08",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Christmas Eve",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2026-12-24",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Christmas Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-12-25",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Rizal Day",
+          "category": "regular",
+          "scope": "national",
+          "date": "2026-12-30",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        },
+        {
+          "name": "Last Day of the Year",
+          "category": "special_non_working",
+          "scope": "national",
+          "date": "2026-12-31",
+          "proclamation_id": "Proclamation No. 1006, s. 2025",
+          "source_url": "https://www.officialgazette.gov.ph/2025/09/03/proclamation-no-1006-s-2025/"
+        }
+      ]
+    }
+  ]
+}

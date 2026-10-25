@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: openfactors_staging
+    schema: staging
+    tables:
+      - name: landed_payload
+  - name: openfactors_control
+    schema: control
+    tables:
+      - name: raw_manifests
+      - name: source_registry

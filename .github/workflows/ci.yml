@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install pinned dev tools
+        run: python -m pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Format check
+        run: ruff format --check .
+      - name: Secret scan
+        run: python tools/scan_secrets.py
+      - name: Contract check
+        run: python -m contracts.check_dataset_contract
+      - name: OpenAPI diff
+        run: python -m openfactors.api.openapi
+        env:
+          PYTHONPATH: src
+      - name: Tests
+        run: pytest

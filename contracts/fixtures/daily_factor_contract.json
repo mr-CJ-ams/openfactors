@@ -1,0 +1,95 @@
+{
+  "fixture_id": "daily_factor_contract_v1",
+  "ticket": "OF-009",
+  "dataset_id": "daily_external_factors_ph",
+  "dataset_version": "1.0.0",
+  "timezone": "Asia/Manila",
+  "timezone_offset": "+08:00",
+  "grain": "one row per location_id and Asia/Manila local date",
+  "fields": [
+    {
+      "position": 1,
+      "name": "date",
+      "postgres": "DATE",
+      "json_type": "string, date",
+      "nullable": false
+    },
+    {
+      "position": 2,
+      "name": "location_id",
+      "postgres": "TEXT",
+      "json_type": "string",
+      "nullable": false
+    },
+    {
+      "position": 3,
+      "name": "country_code",
+      "postgres": "CHAR(2)",
+      "json_type": "string",
+      "nullable": false
+    },
+    {
+      "position": 4,
+      "name": "temperature_mean_c",
+      "postgres": "NUMERIC(7,3)",
+      "json_type": "number",
+      "nullable": true
+    },
+    {
+      "position": 5,
+      "name": "precipitation_mm",
+      "postgres": "NUMERIC(10,3)",
+      "json_type": "number",
+      "nullable": true
+    },
+    {
+      "position": 6,
+      "name": "is_public_holiday",
+      "postgres": "BOOLEAN",
+      "json_type": "boolean",
+      "nullable": false
+    },
+    {
+      "position": 7,
+      "name": "holiday_name",
+      "postgres": "TEXT",
+      "json_type": "string",
+      "nullable": true
+    },
+    {
+      "position": 8,
+      "name": "is_weekend",
+      "postgres": "BOOLEAN",
+      "json_type": "boolean",
+      "nullable": false
+    },
+    {
+      "position": 9,
+      "name": "weather_source_id",
+      "postgres": "TEXT",
+      "json_type": "string",
+      "nullable": false
+    },
+    {
+      "position": 10,
+      "name": "holiday_source_id",
+      "postgres": "TEXT",
+      "json_type": "string",
+      "nullable": false
+    },
+    {
+      "position": 11,
+      "name": "source_updated_at",
+      "postgres": "TIMESTAMPTZ",
+      "json_type": "string, date-time",
+      "nullable": true
+    },
+    {
+      "position": 12,
+      "name": "dataset_version",
+      "postgres": "TEXT",
+      "json_type": "string",
+      "nullable": false
+    }
+  ]
+}

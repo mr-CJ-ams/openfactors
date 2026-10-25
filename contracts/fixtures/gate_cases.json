@@ -1,0 +1,62 @@
+{
+  "fixture_id": "gate_cases_v1",
+  "base_row": {
+    "date": "2018-01-01",
+    "location_id": "ph-manila",
+    "country_code": "PH",
+    "temperature_mean_c": "26.1",
+    "precipitation_mm": "3.4",
+    "is_public_holiday": false,
+    "holiday_name": null,
+    "is_weekend": false,
+    "weather_source_id": "open-meteo-era5",
+    "holiday_source_id": "ph-official-gazette",
+    "source_updated_at": null,
+    "dataset_version": "1.0.0"
+  },
+  "cases": [
+    {"name": "known_good", "expect": "PASS"},
+    {
+      "name": "unknown_location",
+      "set": {"location_id": "ph-missing"},
+      "expect": ["unknown_location"]
+    },
+    {
+      "name": "unknown_date",
+      "set": {"date": "2099-01-01"},
+      "expect": ["unknown_date"]
+    },
+    {"name": "duplicate_location_date", "duplicate": true, "expect": ["duplicate_location_date"]},
+    {
+      "name": "unapproved_weather_source",
+      "set": {"weather_source_id": "not-a-source"},
+      "expect": ["unapproved_source"]
+    },
+    {
+      "name": "unapproved_holiday_source",
+      "set": {"holiday_source_id": "not-a-source"},
+      "expect": ["unapproved_source"]
+    },
+    {
+      "name": "null_location",
+      "set": {"location_id": null},
+      "expect": ["null_required"]
+    },
+    {"name": "missing_public_column", "drop_column": "dataset_version", "expect": ["schema"]},
+    {
+      "name": "reordered_columns",
+      "swap": ["date", "location_id"],
+      "expect": ["schema"]
+    },
+    {
+      "name": "wrong_physical_type",
+      "retype": {"date": "TEXT"},
+      "expect": ["schema"]
+    },
+    {
+      "name": "location_made_nullable",
+      "nullable": {"location_id": true},
+      "expect": ["schema"]
+    }
+  ]
+}

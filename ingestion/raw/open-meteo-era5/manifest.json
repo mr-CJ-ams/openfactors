@@ -1,0 +1,99 @@
+{
+  "fixture_id": "open_meteo_era5_history_v1",
+  "source_id": "open-meteo-era5",
+  "retrieved_on": "2026-10-25",
+  "purpose": "Raw Open-Meteo ERA5 responses for the five pilot cities from 2018-01-01 through 2026-10-25. Not a published release.",
+  "endpoint": "https://archive-api.open-meteo.com/v1/archive",
+  "models": "era5",
+  "timezone": "Asia/Manila",
+  "daily": [
+    "temperature_2m_mean",
+    "precipitation_sum"
+  ],
+  "start_date": "2018-01-01",
+  "end_date": "2026-10-25",
+  "license": "CC BY 4.0",
+  "attribution": "Weather data by Open-Meteo.com",
+  "locations": [
+    {
+      "location_id": "ph-manila",
+      "object": "ingestion/raw/open-meteo-era5/ph-manila.json",
+      "sha256": "92b9cee987fa9eeb62e4425401e69d796ec46485d0da88b8b4bd70e02ecfcec4",
+      "bytes": 74869,
+      "days": 3220,
+      "provider_location_ref": "14.50,121.00",
+      "null_dates": [
+        "2026-10-20",
+        "2026-10-21",
+        "2026-10-22",
+        "2026-10-23",
+        "2026-10-24",
+        "2026-10-25"
+      ]
+    },
+    {
+      "location_id": "ph-baguio",
+      "object": "ingestion/raw/open-meteo-era5/ph-baguio.json",
+      "sha256": "f8cff3e2b255695d16b71ffc91943edbf64c67f0523f4a0e3f8c45c4edf9aabb",
+      "bytes": 75398,
+      "days": 3220,
+      "provider_location_ref": "16.50,120.50",
+      "null_dates": [
+        "2026-10-20",
+        "2026-10-21",
+        "2026-10-22",
+        "2026-10-23",
+        "2026-10-24",
+        "2026-10-25"
+      ]
+    },
+    {
+      "location_id": "ph-cebu-city",
+      "object": "ingestion/raw/open-meteo-era5/ph-cebu-city.json",
+      "sha256": "6897c8b50d5e48b46b07aa2ffb112fd6fe4154416b2a1735c9e05b293b7abc67",
+      "bytes": 75182,
+      "days": 3220,
+      "provider_location_ref": "10.25,123.75",
+      "null_dates": [
+        "2026-10-20",
+        "2026-10-21",
+        "2026-10-22",
+        "2026-10-23",
+        "2026-10-24",
+        "2026-10-25"
+      ]
+    },
+    {
+      "location_id": "ph-tacloban",
+      "object": "ingestion/raw/open-meteo-era5/ph-tacloban.json",
+      "sha256": "043e275f7e7ba6a73ee9bb7ef3c082277847a157bc555b3b324872dc8d378fe7",
+      "bytes": 75151,
+      "days": 3220,
+      "provider_location_ref": "11.25,125.25",
+      "null_dates": [
+        "2026-10-20",
+        "2026-10-21",
+        "2026-10-22",
+        "2026-10-23",
+        "2026-10-24",
+        "2026-10-25"
+      ]
+    },
+    {
+      "location_id": "ph-davao-city",
+      "object": "ingestion/raw/open-meteo-era5/ph-davao-city.json",
+      "sha256": "ed63cb18a9ef4c733b56be91d440c0a16d9f1ca512e85815c76080753b963493",
+      "bytes": 74929,
+      "days": 3220,
+      "provider_location_ref": "7.00,125.50",
+      "null_dates": [
+        "2026-10-20",
+        "2026-10-21",
+        "2026-10-22",
+        "2026-10-23",
+        "2026-10-24",
+        "2026-10-25"
+      ]
+    }
+  ]
+}

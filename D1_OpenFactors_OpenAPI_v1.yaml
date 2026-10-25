@@ -1,0 +1,411 @@
+openapi: 3.1.0
+info:
+  title: OpenFactors Public Data API
+  version: 1.0.0-draft
+  description: Contract-first API for the Philippines daily external factors dataset.
+    All data endpoints are anonymous, read-only, release-pinned and subject to publication/license
+    gates. No production host is asserted.
+servers:
+- url: http://localhost:8000
+  description: Local development only; HTTPS required in production
+tags:
+- name: Catalog
+- name: Factors
+- name: Exports
+paths:
+  /api/v1/datasets:
+    get:
+      operationId: listDatasets
+      summary: List published datasets
+      parameters: []
+      responses:
+        '200':
+          description: Published catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - datasets
+                - generated_at
+                properties:
+                  generated_at:
+                    type: string
+                    format: date-time
+                  datasets:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400': &id001
+          description: Malformed HTTP/query syntax
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405': &methodNotAllowed
+          description: Unsupported method
+          headers:
+            Allow:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404': &id002
+          description: Unknown dataset, location or inaccessible release
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422': &id003
+          description: Invalid filter, unsupported date window or exceeded export
+            cap
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429': &id004
+          description: Rate limit; Retry-After header
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &id005
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503': &id006
+          description: Temporary dependency failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/datasets/daily-external-factors-ph:
+    get:
+      operationId: getDataset
+      summary: Get dataset metadata
+      parameters:
+      - name: release_id
+        in: query
+        required: false
+        description: Optional accessible immutable release UUID
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Dictionary and provenance
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - release
+                - grain
+                - timezone
+                - columns
+                - sources
+                - license
+                - coverage
+                - limitations
+                properties:
+                  release:
+                    $ref: '#/components/schemas/ReleaseMetadata'
+                  grain:
+                    type: string
+                  timezone:
+                    type: string
+                  columns:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  sources:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  license:
+                    type: object
+                    additionalProperties: true
+                  coverage:
+                    type: object
+                    additionalProperties: true
+                  limitations:
+                    type: array
+                    items:
+                      type: string
+        '400': *id001
+        '405': *methodNotAllowed
+        '404': *id002
+        '422': *id003
+        '429': *id004
+        '500': *id005
+        '503': *id006
+  /api/v1/factors/daily:
+    get:
+      operationId: listDailyFactors
+      summary: Query release-pinned daily external factors
+      parameters:
+      - &id007
+        name: location_id
+        in: query
+        required: true
+        description: Approved PH pilot location; single location only in MVP
+        schema:
+          type: string
+      - &id008
+        name: start_date
+        in: query
+        required: true
+        description: Inclusive local date in Asia/Manila
+        schema:
+          type: string
+          format: date
+      - &id009
+        name: end_date
+        in: query
+        required: true
+        description: Inclusive local date in Asia/Manila
+        schema:
+          type: string
+          format: date
+      - &id010
+        name: release_id
+        in: query
+        required: false
+        description: Optional immutable release UUID. If omitted, pin active release
+          once at request start
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        description: One-based page number
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+      - name: page_size
+        in: query
+        required: false
+        description: Maximum 1000
+        schema:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+      responses:
+        '200':
+          description: Paginated factors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactorPage'
+        '400': *id001
+        '405': *methodNotAllowed
+        '404': *id002
+        '422': *id003
+        '429': *id004
+        '500': *id005
+        '503': *id006
+  /api/v1/exports/daily-external-factors-ph:
+    get:
+      operationId: exportDailyFactors
+      summary: Export bounded CSV or Parquet
+      parameters:
+      - *id007
+      - *id008
+      - *id009
+      - *id010
+      - name: format
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - csv
+          - parquet
+      responses:
+        '200':
+          description: File bytes
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/vnd.apache.parquet:
+              schema:
+                type: string
+                format: binary
+          headers:
+            X-Dataset-Version:
+              schema:
+                type: string
+            X-Release-Id:
+              schema:
+                type: string
+            X-Data-As-Of:
+              schema:
+                type: string
+            Content-Disposition:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+        '400': *id001
+        '405': *methodNotAllowed
+        '404': *id002
+        '422': *id003
+        '429': *id004
+        '500': *id005
+        '503': *id006
+components:
+  schemas:
+    DailyFactor:
+      type: object
+      additionalProperties: false
+      required:
+      - date
+      - location_id
+      - country_code
+      - temperature_mean_c
+      - precipitation_mm
+      - is_public_holiday
+      - holiday_name
+      - is_weekend
+      - weather_source_id
+      - holiday_source_id
+      - source_updated_at
+      - dataset_version
+      properties:
+        date:
+          type: string
+          description: Philippine local calendar date
+          format: date
+        location_id:
+          type: string
+          description: Stable approved location identifier
+        country_code:
+          type: string
+          description: ISO 3166-1 alpha-2 code; PH in MVP
+          enum:
+          - PH
+        temperature_mean_c:
+          anyOf:
+          - type: number
+            description: Daily mean temperature in degrees Celsius
+          - type: 'null'
+        precipitation_mm:
+          anyOf:
+          - type: number
+            description: Daily precipitation in millimeters
+            minimum: 0
+          - type: 'null'
+        is_public_holiday:
+          type: boolean
+          description: National public holiday. Published rows are never null.
+            Incomplete calendar years are omitted from the release.
+        holiday_name:
+          anyOf:
+          - type: string
+            description: Holiday name, null for non-holidays
+          - type: 'null'
+        is_weekend:
+          type: boolean
+          description: Saturday or Sunday in Asia/Manila
+        weather_source_id:
+          type: string
+          description: Approved weather source identifier
+        holiday_source_id:
+          type: string
+          description: Approved holiday source identifier
+        source_updated_at:
+          anyOf:
+          - type: string
+            description: Latest meaningful upstream update timestamp. Null when
+              the source does not provide one. Never the retrieval time.
+            format: date-time
+          - type: 'null'
+        dataset_version:
+          type: string
+          description: Semantic schema version
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          required:
+          - code
+          - message
+          - trace_id
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            trace_id:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+    ReleaseMetadata:
+      type: object
+      required:
+      - dataset_id
+      - dataset_version
+      - release_id
+      - generated_at
+      - data_as_of
+      properties:
+        dataset_id:
+          type: string
+          const: daily_external_factors_ph
+        dataset_version:
+          type: string
+        release_id:
+          type: string
+          format: uuid
+        generated_at:
+          type: string
+          format: date-time
+        data_as_of:
+          type: string
+          format: date-time
+    FactorPage:
+      allOf:
+      - $ref: '#/components/schemas/ReleaseMetadata'
+      - type: object
+        required:
+        - pagination
+        - data
+        properties:
+          pagination:
+            type: object
+            required:
+            - page
+            - page_size
+            - total
+            properties:
+              page:
+                type: integer
+              page_size:
+                type: integer
+              total:
+                type: integer
+          data:
+            type: array
+            items:
+              $ref: '#/components/schemas/DailyFactor'

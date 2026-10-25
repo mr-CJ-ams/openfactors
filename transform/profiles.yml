@@ -1,0 +1,13 @@
+openfactors:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('OPENFACTORS_PGHOST') }}"
+      port: "{{ env_var('OPENFACTORS_PGPORT') | int }}"
+      user: of_transform
+      password: "{{ env_var('OPENFACTORS_PGPASSWORD') }}"
+      dbname: "{{ env_var('OPENFACTORS_PGDATABASE') }}"
+      schema: staging
+      sslmode: require
+      threads: 1

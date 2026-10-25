@@ -1,0 +1,36 @@
+{
+  "fixture_id": "revision_cases_v1",
+  "not_a_proclamation": true,
+  "revision_order": [
+    "source_updated_at DESC NULLS LAST",
+    "retrieved_at DESC",
+    "artifact_id DESC"
+  ],
+  "weather": {
+    "location_id": "ph-manila",
+    "later_source_update": {
+      "date": "2018-01-04",
+      "winner": "newer_upstream",
+      "temperature_mean_c": "21.0",
+      "precipitation_mm": "0",
+      "losers": ["older_upstream", "later_retrieval_only", "negative_later"]
+    },
+    "artifact_id_tie_break": {
+      "date": "2018-01-05",
+      "winner": "tie_high",
+      "temperature_mean_c": "11.0",
+      "precipitation_mm": "0"
+    }
+  },
+  "holiday": {
+    "winning_snapshot": "new_calendar",
+    "broadcast_date": "2018-01-06",
+    "holiday_name": "Alpha Day | Beta Day",
+    "holiday_count": 2,
+    "is_weekend": true,
+    "absent_from_winner": {
+      "date": "2018-01-04",
+      "is_public_holiday": false
+    }
+  }
+}

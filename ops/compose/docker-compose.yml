@@ -1,0 +1,88 @@
+name: ${COMPOSE_PROJECT_NAME}
+
+services:
+  certs:
+    image: postgres:16.10-bookworm
+    user: root
+    entrypoint: ["/bin/bash", "/opt/openfactors/make-certs.sh"]
+    volumes:
+      - certs:/certs
+      - ./postgres/make-certs.sh:/opt/openfactors/make-certs.sh:ro
+    restart: "no"
+
+  postgres:
+    image: postgres:16.10-bookworm
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      OF_MIGRATE_PASSWORD: ${OF_MIGRATE_PASSWORD}
+      OF_INGEST_PASSWORD: ${OF_INGEST_PASSWORD}
+      OF_TRANSFORM_PASSWORD: ${OF_TRANSFORM_PASSWORD}
+      OF_PUBLISH_PASSWORD: ${OF_PUBLISH_PASSWORD}
+      OF_API_PASSWORD: ${OF_API_PASSWORD}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - certs:/certs:ro
+      - ./postgres/pg_hba.conf:/etc/openfactors/pg_hba.conf:ro
+      - ./postgres/entrypoint.sh:/opt/openfactors/entrypoint.sh:ro
+      - ./postgres/init-roles.sh:/docker-entrypoint-initdb.d/01-roles.sh:ro
+    entrypoint: ["/bin/bash", "/opt/openfactors/entrypoint.sh"]
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    # minio/minio was removed from Docker Hub. This is a pinned community fork.
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
+    command: ["server", "/data", "--certs-dir", "/root/.minio/certs", "--console-address", ":9001"]
+    user: "0:0"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT}:9001"
+    volumes:
+      - minio-data:/data
+      - certs:/root/.minio/certs:ro
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-kf", "https://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  create-bucket:
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      BUCKET: ${BUCKET}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        mc --insecure alias set local https://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc --insecure mb --ignore-existing "local/$$BUCKET"
+        mc --insecure anonymous set none "local/$$BUCKET"
+    restart: "no"
+
+volumes:
+  certs:
+  postgres-data:
+  minio-data:

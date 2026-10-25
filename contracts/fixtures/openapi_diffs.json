@@ -1,0 +1,13 @@
+{
+  "unimplemented_operations": [],
+  "response_gaps": [
+    {
+      "path": "/api/v1/datasets",
+      "method": "get",
+      "status": "404",
+      "reason": "The catalog list has no resource id. An empty list is 200.",
+      "ticket": "OF-030"
+    }
+  ],
+  "content_gaps": []
+}

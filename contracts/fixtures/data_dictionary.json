@@ -1,0 +1,184 @@
+{
+  "fixture_id": "data_dictionary_v1",
+  "dataset_id": "daily_external_factors_ph",
+  "dataset_version": "1.0.0",
+  "release_id": null,
+  "grain": "one row per location_id and Asia/Manila local date",
+  "business_key": ["location_id", "date"],
+  "timezone": "Asia/Manila",
+  "geographic_coverage": "ph-manila, ph-baguio, ph-cebu-city, ph-tacloban, ph-davao-city",
+  "temporal_coverage": "2018-01-01 through the current Asia/Manila date on the spine. That end is not a maximum date span.",
+  "data_as_of": null,
+  "last_successful_publication": null,
+  "next_scheduled_attempt": null,
+  "known_gaps": "Holiday years 2018 through 2026 are transcribed from Official Gazette proclamations. The ERA5 responses for 2018-01-01 through 2026-10-25 are stored for the five pilot cities. The archive left 2026-10-20 through 2026-10-25 null. A missing weather measure stays null.",
+  "revision_policy": "A content change creates a new release_id. The schema version changes only when a field meaning changes. release_id is not a public row column.",
+  "license": "Weather is CC BY 4.0 and the free Open-Meteo API is non-commercial. Holiday names are transcribed from Official Gazette proclamations.",
+  "attribution": "Weather data by Open-Meteo.com. National holidays as proclaimed in the Official Gazette of the Philippines.",
+  "source_links": [
+    "https://open-meteo.com/",
+    "https://www.officialgazette.gov.ph/"
+  ],
+  "provider_spatial_resolution": "ERA5 0.25 degree cell, about 25 km. Reanalysis grid, not a station and not a measurement at a street address.",
+  "owner": "Founder / Product Lead",
+  "quality_report_summary": null,
+  "deprecation_policy": "A breaking field change requires a new major dataset_version. release_id values are not reused.",
+  "columns": [
+    {
+      "name": "date",
+      "logical_type": "string, date",
+      "physical_type": "DATE",
+      "nullable": false,
+      "unit": null,
+      "description": "Philippine local calendar date. The date changes at 16:00 UTC.",
+      "source": "Asia/Manila civil date",
+      "transformation": "Take the calendar date in Asia/Manila. Do not use the UTC date.",
+      "examples": ["2018-01-01"]
+    },
+    {
+      "name": "location_id",
+      "logical_type": "string",
+      "physical_type": "TEXT",
+      "nullable": false,
+      "unit": null,
+      "description": "Stable approved location identifier. It is not reused for a different place.",
+      "source": "core.dim_location",
+      "transformation": "Copy the approved location key. Unknown locations are rejected.",
+      "examples": ["ph-manila"]
+    },
+    {
+      "name": "country_code",
+      "logical_type": "string",
+      "physical_type": "CHAR(2)",
+      "nullable": false,
+      "unit": null,
+      "description": "ISO 3166-1 alpha-2 country code. The MVP value is PH.",
+      "source": "core.dim_location",
+      "transformation": "Copy the location country code.",
+      "examples": ["PH"]
+    },
+    {
+      "name": "temperature_mean_c",
+      "logical_type": "number",
+      "physical_type": "NUMERIC(7,3)",
+      "nullable": true,
+      "unit": "°C",
+      "description": "Daily mean temperature from the ERA5 reanalysis cell. Null when the source did not provide it. Not a station observation.",
+      "source": "open-meteo-era5 temperature_2m_mean",
+      "transformation": "Keep degrees Celsius. A missing value stays null.",
+      "examples": ["26.1", null]
+    },
+    {
+      "name": "precipitation_mm",
+      "logical_type": "number",
+      "physical_type": "NUMERIC(10,3)",
+      "nullable": true,
+      "unit": "mm",
+      "description": "Daily precipitation total. A reported zero stays zero. Null means the source did not provide a value. Negative values are rejected.",
+      "source": "open-meteo-era5 precipitation_sum",
+      "transformation": "Keep millimeters. Do not turn a missing value into zero.",
+      "examples": ["3.4", "0", null]
+    },
+    {
+      "name": "is_public_holiday",
+      "logical_type": "boolean",
+      "physical_type": "BOOLEAN",
+      "nullable": false,
+      "unit": null,
+      "description": "True when the winning national calendar lists a regular or special non-working day. False only inside a verified complete year. An incomplete year is omitted.",
+      "source": "ph-official-gazette",
+      "transformation": "Use one calendar snapshot for the covered year. Local holidays and special working days do not set the flag.",
+      "examples": [false]
+    },
+    {
+      "name": "holiday_name",
+      "logical_type": "string",
+      "physical_type": "TEXT",
+      "nullable": true,
+      "unit": null,
+      "description": "Joined national holiday names. Null when is_public_holiday is false. Several names use ' | ' in alphabetical order.",
+      "source": "ph-official-gazette",
+      "transformation": "Trim, drop duplicate names, sort, and join with ' | '.",
+      "examples": [null]
+    },
+    {
+      "name": "is_weekend",
+      "logical_type": "boolean",
+      "physical_type": "BOOLEAN",
+      "nullable": false,
+      "unit": null,
+      "description": "True on Saturday and Sunday in Asia/Manila. Monday is ISO day 1.",
+      "source": "core.dim_date",
+      "transformation": "True when the ISO weekday is 6 or 7.",
+      "examples": [false, true]
+    },
+    {
+      "name": "weather_source_id",
+      "logical_type": "string",
+      "physical_type": "TEXT",
+      "nullable": false,
+      "unit": null,
+      "description": "Approved weather source for this location. A missing measurement still names that source.",
+      "source": "Pinned location source map, otherwise the selected weather revision",
+      "transformation": "Use the selected revision's source when weather was staged. Otherwise use the pinned source for the location.",
+      "examples": ["open-meteo-era5"]
+    },
+    {
+      "name": "holiday_source_id",
+      "logical_type": "string",
+      "physical_type": "TEXT",
+      "nullable": false,
+      "unit": null,
+      "description": "Approved holiday source for the winning calendar snapshot.",
+      "source": "Pinned location source map and the holiday snapshot",
+      "transformation": "Copy the snapshot source. A row whose source is not the pinned source is excluded.",
+      "examples": ["ph-official-gazette"]
+    },
+    {
+      "name": "source_updated_at",
+      "logical_type": "string, date-time",
+      "physical_type": "TIMESTAMPTZ",
+      "nullable": true,
+      "unit": null,
+      "description": "Latest meaningful upstream update time among the contributing weather and holiday revisions. Null when neither publishes one. Never the retrieval time.",
+      "source": "source_updated_at on the selected weather revision and the holiday snapshot",
+      "transformation": "Greatest non-null upstream timestamp. Do not substitute retrieved_at.",
+      "examples": [null]
+    },
+    {
+      "name": "dataset_version",
+      "logical_type": "string",
+      "physical_type": "TEXT",
+      "nullable": false,
+      "unit": null,
+      "description": "Semantic schema version of this row. It is not the content release id.",
+      "source": "Pinned dataset contract",
+      "transformation": "Copy the contract dataset_version onto every candidate row.",
+      "examples": ["1.0.0"]
+    }
+  ],
+  "internal_columns": [
+    {
+      "name": "weather_data_status",
+      "logical_type": "string",
+      "physical_type": "TEXT",
+      "nullable": false,
+      "unit": null,
+      "description": "available, missing, or upstream_gap. Not a public CSV column. missing means both measures are null.",
+      "source": "Selected weather revision, or missing when no revision was staged",
+      "transformation": "Pass through a staged status. Use missing when the location-day has no weather revision.",
+      "examples": ["available", "missing"]
+    },
+    {
+      "name": "release_id",
+      "logical_type": "string",
+      "physical_type": "UUID",
+      "nullable": true,
+      "unit": null,
+      "description": "Content snapshot identifier. Empty on the candidate. Not a public row column.",
+      "source": "Assigned when a release is pinned",
+      "transformation": "Leave null on the candidate mart.",
+      "examples": [null]
+    }
+  ]
+}

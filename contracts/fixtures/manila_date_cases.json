@@ -1,0 +1,85 @@
+{
+  "fixture_id": "manila_date_cases_v1",
+  "timezone": "Asia/Manila",
+  "utc_offset": "+08:00",
+  "rule": "The local date changes at 16:00:00Z. Saturday and Sunday are the weekend. Monday is ISO day 1.",
+  "cases": [
+    {
+      "name": "start_of_supported_spine",
+      "instant": "2017-12-31T16:00:00Z",
+      "date": "2018-01-01",
+      "day_of_week": 1,
+      "is_weekend": false
+    },
+    {
+      "name": "explicit_manila_offset",
+      "instant": "2018-01-01T00:00:00+08:00",
+      "date": "2018-01-01",
+      "day_of_week": 1,
+      "is_weekend": false
+    },
+    {
+      "name": "one_second_before_next_manila_day",
+      "instant": "2018-01-01T15:59:59Z",
+      "date": "2018-01-01",
+      "day_of_week": 1,
+      "is_weekend": false
+    },
+    {
+      "name": "manila_midnight",
+      "instant": "2018-01-01T16:00:00Z",
+      "date": "2018-01-02",
+      "day_of_week": 2,
+      "is_weekend": false
+    },
+    {
+      "name": "friday",
+      "instant": "2018-01-04T16:00:00Z",
+      "date": "2018-01-05",
+      "day_of_week": 5,
+      "is_weekend": false
+    },
+    {
+      "name": "saturday",
+      "instant": "2018-01-05T16:00:00Z",
+      "date": "2018-01-06",
+      "day_of_week": 6,
+      "is_weekend": true
+    },
+    {
+      "name": "sunday_evening",
+      "instant": "2018-01-07T15:59:59Z",
+      "date": "2018-01-07",
+      "day_of_week": 7,
+      "is_weekend": true
+    },
+    {
+      "name": "monday_after_weekend",
+      "instant": "2018-01-07T16:00:00Z",
+      "date": "2018-01-08",
+      "day_of_week": 1,
+      "is_weekend": false
+    },
+    {
+      "name": "year_end_still_2018",
+      "instant": "2018-12-31T15:59:59Z",
+      "date": "2018-12-31",
+      "day_of_week": 1,
+      "is_weekend": false
+    },
+    {
+      "name": "new_year_2019",
+      "instant": "2018-12-31T16:00:00Z",
+      "date": "2019-01-01",
+      "day_of_week": 2,
+      "is_weekend": false
+    },
+    {
+      "name": "leap_day",
+      "instant": "2020-02-28T16:00:00Z",
+      "date": "2020-02-29",
+      "day_of_week": 6,
+      "is_weekend": true
+    }
+  ]
+}
