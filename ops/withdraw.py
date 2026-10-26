@@ -125,6 +125,45 @@ def resolve_release(environment: str, release_id: str | None) -> ReleaseAccess:
     return ReleaseAccess(404, None)
 
 
+def _consistent_release_sql(quoted_source: str) -> str:
+    """SQL predicate for one publish.dataset_releases row named releases."""
+    return f"""
+      (
+        SELECT count(*)
+        FROM publish.daily_external_factors_ph AS stored
+        WHERE stored.release_id = releases.release_id
+      ) = releases.actual_row_count
+      AND EXISTS (
+        SELECT 1
+        FROM quality.validation_runs AS runs
+        WHERE runs.release_id = releases.release_id
+          AND runs.status = 'PASS'
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM publish.daily_external_factors_ph AS factors
+        WHERE factors.release_id = releases.release_id
+          AND (
+            factors.dataset_version IS DISTINCT FROM releases.schema_version
+            OR factors.weather_source_id = {quoted_source}
+            OR factors.holiday_source_id = {quoted_source}
+            OR NOT EXISTS (
+              SELECT 1
+              FROM control.source_registry AS registry
+              WHERE registry.source_id = factors.weather_source_id
+                AND registry.redistribution_status = 'approved'
+            )
+            OR NOT EXISTS (
+              SELECT 1
+              FROM control.source_registry AS registry
+              WHERE registry.source_id = factors.holiday_source_id
+                AND registry.redistribution_status = 'approved'
+            )
+          )
+      )
+    """
+
+
 def _suspend_sql(source_id: str) -> str:
     quoted = sql_literal(source_id)
     dataset = sql_literal(DATASET_ID)
@@ -163,6 +202,7 @@ def _suspend_sql(source_id: str) -> str:
     DECLARE
       current_id UUID;
       replacement_id UUID;
+      current_valid BOOLEAN;
     BEGIN
       SELECT release_id INTO current_id
       FROM publish.active_dataset_release
@@ -170,51 +210,33 @@ def _suspend_sql(source_id: str) -> str:
       IF current_id IS NULL THEN
         RETURN;
       END IF;
-      IF current_id IN (SELECT release_id FROM of_withdrawn)
-         OR EXISTS (
-           SELECT 1 FROM publish.dataset_releases
-           WHERE release_id = current_id AND status <> 'published'
-         )
-         OR EXISTS (
-           SELECT 1 FROM publish.daily_external_factors_ph AS factors
-           WHERE factors.release_id = current_id
-             AND (
-               factors.weather_source_id = {quoted}
-               OR factors.holiday_source_id = {quoted}
-             )
-         )
-      THEN
-        SELECT releases.release_id INTO replacement_id
+      -- A release with deleted fact rows is not a servable replacement.
+      -- The stored count, quality evidence, version, and source checks are
+      -- the same gates rollback_release uses before it moves the pointer.
+      SELECT EXISTS (
+        SELECT 1
         FROM publish.dataset_releases AS releases
-        WHERE releases.status = 'published'
+        WHERE releases.release_id = current_id
+          AND releases.status = 'published'
           AND releases.dataset_id = {dataset}
-          AND NOT EXISTS (
-            SELECT 1 FROM publish.daily_external_factors_ph AS factors
-            WHERE factors.release_id = releases.release_id
-              AND (
-                factors.weather_source_id = {quoted}
-                OR factors.holiday_source_id = {quoted}
-                OR NOT EXISTS (
-                  SELECT 1 FROM control.source_registry AS registry
-                  WHERE registry.source_id = factors.weather_source_id
-                    AND registry.redistribution_status = 'approved'
-                )
-                OR NOT EXISTS (
-                  SELECT 1 FROM control.source_registry AS registry
-                  WHERE registry.source_id = factors.holiday_source_id
-                    AND registry.redistribution_status = 'approved'
-                )
-              )
-          )
-        ORDER BY releases.published_at DESC NULLS LAST, releases.release_id DESC
-        LIMIT 1;
-        IF replacement_id IS NULL THEN
-          DELETE FROM publish.active_dataset_release WHERE dataset_id = {dataset};
-        ELSE
-          UPDATE publish.active_dataset_release
-          SET release_id = replacement_id, activated_at = now()
-          WHERE dataset_id = {dataset};
-        END IF;
+          AND {_consistent_release_sql(quoted)}
+      ) INTO current_valid;
+      IF current_valid THEN
+        RETURN;
+      END IF;
+      SELECT releases.release_id INTO replacement_id
+      FROM publish.dataset_releases AS releases
+      WHERE releases.status = 'published'
+        AND releases.dataset_id = {dataset}
+        AND {_consistent_release_sql(quoted)}
+      ORDER BY releases.published_at DESC NULLS LAST, releases.release_id DESC
+      LIMIT 1;
+      IF replacement_id IS NULL THEN
+        DELETE FROM publish.active_dataset_release WHERE dataset_id = {dataset};
+      ELSE
+        UPDATE publish.active_dataset_release
+        SET release_id = replacement_id, activated_at = now()
+        WHERE dataset_id = {dataset};
       END IF;
     END $$;
     COMMIT;

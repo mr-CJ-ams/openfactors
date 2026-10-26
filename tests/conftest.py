@@ -32,6 +32,7 @@ _REQUIRED = (
     "test_sql_join_runs_on_the_pinned_release",
     "test_staging_models_parse_units_and_rebuild_the_same_rows",
     "test_suspended_source_withdraws_releases_and_purges_exports",
+    "test_withdrawal_does_not_activate_a_release_with_missing_rows",
 )
 
 

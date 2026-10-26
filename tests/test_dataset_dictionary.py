@@ -10,14 +10,19 @@ import uuid
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-import pytest
 import yaml
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
-from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
-from ops.promote import active_release_id, promote_release, restore_active_release
+from ops.promote import active_release_id, promote_release
 from ops.releases import persist_manifest
 from ops.withdraw import suspend_source
+from tests.release_support import (
+    ENVIRONMENT,
+    cleanup_steps,
+    discard_test_releases,
+    ensure_isolated_database,
+    restore_previous_release,
+)
 from tests.test_release_manifest import _build, _row
 
 from openfactors.api.catalog import DATASET_PATH, catalog_server
@@ -94,10 +99,9 @@ def test_dictionary_pins_a_release_and_hides_an_unknown_one() -> None:
 
 
 def test_live_pin_survives_a_newer_release_and_fails_after_withdrawal() -> None:
-    if not dev_database_ready():
-        pytest.skip("Docker is required to pin a published release.")
-    apply("dev")
-    previous = active_release_id("dev")
+    ensure_isolated_database()
+    apply(ENVIRONMENT)
+    previous = active_release_id(ENVIRONMENT)
     prior = _source_status()
     older = str(uuid.uuid4())
     newer = str(uuid.uuid4())
@@ -120,7 +124,7 @@ def test_live_pin_survives_a_newer_release_and_fails_after_withdrawal() -> None:
         assert current["release"]["release_id"] == newer
         assert pinned["release"]["release_id"] == older
         assert len(pinned["columns"]) == 12
-        suspend_source("dev", SOURCE_ID)
+        suspend_source(ENVIRONMENT, SOURCE_ID)
         hidden_status, _hidden_headers, hidden = _request(
             server, f"{DATASET_PATH}?release_id={older}"
         )
@@ -131,11 +135,13 @@ def test_live_pin_survives_a_newer_release_and_fails_after_withdrawal() -> None:
         assert hidden["error"]["message"] == missing["error"]["message"]
         assert "withdrawn" not in hidden["error"]["message"].lower()
     finally:
-        _set_source_status(prior)
-        _cleanup([older, newer])
-        restore_active_release("dev", previous)
-        server.shutdown()
-        server.server_close()
+        cleanup_steps(
+            lambda: _set_source_status(prior),
+            lambda: discard_test_releases(ENVIRONMENT, [older, newer]),
+            lambda: restore_previous_release(ENVIRONMENT, previous),
+            server.shutdown,
+            server.server_close,
+        )
 
 
 def _assert_dictionary(body: dict, dictionary: dict, release_id: str) -> None:
@@ -191,14 +197,14 @@ def _publish(release_id: str, temperature: str) -> None:
     row = _row()
     row["temperature_mean_c"] = temperature
     manifest = _build(load_json(CONTRACT_PATH), [row], release_id=release_id)
-    persist_manifest("dev", manifest)
-    promote_release("dev", manifest, [row])
+    persist_manifest(ENVIRONMENT, manifest)
+    promote_release(ENVIRONMENT, manifest, [row])
 
 
 def _live_release(release_id: str | None) -> dict | None:
     from openfactors.api.catalog import load_accessible_release
 
-    return load_accessible_release("dev", release_id)
+    return load_accessible_release(ENVIRONMENT, release_id)
 
 
 def _request(
@@ -226,7 +232,7 @@ def _set_source_status(status: str) -> None:
     if status not in ALLOWED_STATUS:
         raise AssertionError(status)
     completed = psql(
-        "dev",
+        ENVIRONMENT,
         "of_admin",
         "UPDATE control.source_registry "
         f"SET redistribution_status = '{status}', updated_at = now() "
@@ -236,23 +242,6 @@ def _set_source_status(status: str) -> None:
 
 
 def _admin(sql: str) -> list[str]:
-    completed = psql("dev", "of_admin", sql, tuples_only=True)
+    completed = psql(ENVIRONMENT, "of_admin", sql, tuples_only=True)
     assert completed.returncode == 0, completed.stderr
     return [line for line in completed.stdout.splitlines() if line]
-
-
-def _cleanup(release_ids: list[str]) -> None:
-    quoted = ", ".join(f"'{release_id}'::uuid" for release_id in release_ids)
-    completed = psql(
-        "dev",
-        "of_admin",
-        f"""
-        BEGIN;
-        ALTER TABLE publish.daily_external_factors_ph DISABLE TRIGGER published_rows_immutable;
-        DELETE FROM publish.daily_external_factors_ph WHERE release_id IN ({quoted});
-        DELETE FROM publish.active_dataset_release WHERE release_id IN ({quoted});
-        ALTER TABLE publish.daily_external_factors_ph ENABLE TRIGGER published_rows_immutable;
-        COMMIT;
-        """,
-    )
-    assert completed.returncode == 0, completed.stderr

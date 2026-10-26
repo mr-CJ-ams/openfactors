@@ -1,6 +1,7 @@
 """Notebook and SQL join. Sample orders are not a measured result."""
 
 import json
+import sys
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -24,6 +25,7 @@ from ops.local_stack import dev_database_ready
 from ops.migrate import apply
 from ops.promote import active_release_id, promote_release, restore_active_release
 from ops.releases import persist_manifest
+from tests.release_support import cleanup_steps
 from tests.test_factor_query import _set_source_status, _source_status
 from tests.test_release_manifest import _build, _row
 from tests.test_release_promotion import _approved, _cleanup
@@ -117,10 +119,11 @@ def test_sql_join_runs_on_the_pinned_release() -> None:
         assert Decimal(row["precipitation_mm"]) == Decimal("3.4")
         assert row["is_public_holiday"] is False
     finally:
-        _cleanup([release_id])
-        restore_active_release("dev", previous)
-        if prior != "approved":
-            _set_source_status(prior)
+        cleanup_steps(
+            lambda: _cleanup([release_id], "dev"),
+            lambda: restore_active_release("dev", previous),
+            lambda: _set_source_status(prior) if prior != "approved" else None,
+        )
 
 
 @contextmanager
@@ -160,11 +163,13 @@ def published_history_fixture() -> Iterator[str]:
         promote_release("dev", manifest, rows)
         yield release_id
     finally:
-        _cleanup([release_id])
-        restore_active_release("dev", previous)
-        if prior != "approved":
-            _set_source_status(prior)
-        assert active_release_id("dev") == previous
+        cleanup_steps(
+            lambda: _cleanup([release_id], "dev"),
+            lambda: restore_active_release("dev", previous),
+            lambda: _set_source_status(prior) if prior != "approved" else None,
+        )
+        if sys.exception() is None:
+            assert active_release_id("dev") == previous
 
 
 def _history_rows() -> list[dict]:
