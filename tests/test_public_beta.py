@@ -96,6 +96,8 @@ def test_limits_proposal_does_not_approve_or_enforce() -> None:
     assert "not measured benchmarks" in text
     assert "The 366-day proposal is reconsidered" in text
     assert "60 requests per minute per client IP" in text
+    assert "provisional until staging measurements" in text
+    assert "Loopback stays unlimited." in text
     assert "100,000 rows" in text
     assert "1,000" in text
     assert "3,221" in text

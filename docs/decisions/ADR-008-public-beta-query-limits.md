@@ -3,13 +3,13 @@
 | Field | Value |
 |---|---|
 | Decision | The 366-day span is reconsidered. Page size and export caps stay as they are. |
-| Status | Reconsidered on 2026-10-26. Not approved. Not enforced. |
+| Status | Reconsidered on 2026-10-26. Not approved. Not enforced for the date span. The request window is provisional until staging measurements. |
 | Number | ADR-008. ADR-005 is unchanged. |
 | Public release | No-go. This record does not deploy, and it does not mark a release go. |
 
 The 366-day maximum was an owner-selected initial policy limit. It is not a measured benchmark, and it is not enforced. A one-year cap would cut the historical range this dataset is meant to serve. This record leaves that cap unimplemented and checks whether one location's full stored history already fits the existing page size and export caps.
 
-The rate of 60 requests per minute per client IP remains an owner-selected initial policy limit. It is not enforced. It waits on a public hosting architecture. This record does not add a limiter on localhost and does not trust a forwarding header.
+The earlier proposal was 60 requests per minute per client IP. The implemented window is 60 requests per rolling 60 seconds for a resolved non-loopback client. It is provisional until staging measurements. Loopback stays unlimited. `Forwarded` and `X-Forwarded-For` are ignored unless the TCP peer is an explicitly configured proxy. The numbers and the rationale are in `docs/decisions/api-resource-limits.md`. This is not a hosted load profile, and it does not approve public hosting.
 
 These observations are one local look at the dev database on 2026-10-26. They are not measured benchmarks, not a hosted load test, and not proof of production readiness.
 
@@ -65,7 +65,7 @@ Run this on the local dev database. Record the figures. Do not set a pass thresh
 | Limit | Decision |
 |---|---|
 | Inclusive query date span | The 366-day proposal is reconsidered. It is not enforced. A query may still use any `start_date` on or before `end_date`. |
-| Public request rate | 60 requests per minute per client IP stays a proposal. No limiter is installed. |
+| Public request rate | 60 requests per rolling 60 seconds for a resolved non-loopback client. Loopback is unlimited. Provisional until staging measurements. |
 | Factor page size | Maximum 1,000 rows. Default 100. Unchanged. |
 | Export caps | 100,000 rows and 50,000,000 bytes. Unchanged. |
 
@@ -79,5 +79,5 @@ OF-001 through OF-049 stay in progress. No ticket is marked done. No 366-day che
 |---|---|---|
 | Leave the date span uncapped unless a later record chooses a different bound from a repeated measurement. | OF-042 | Not started. The check above is the local procedure. |
 | Keep page size 1 to 1,000 and the export ceilings at 100,000 rows and 50,000,000 bytes. | OF-033 | Already enforced. |
-| Enforce a per-IP rate only after a hosting record names the client address. Do not count localhost as that address, and do not read a forwarding header before then. | OF-041 | Not started. |
+| Count the TCP peer. Do not count loopback. Ignore forwarding headers unless that peer is configured. | OF-041 | Provisional. Not a staging measurement. |
 | Run the QA sheet before any case leaves "Not run". | OF-043 | Not started. |

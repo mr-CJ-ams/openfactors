@@ -35,7 +35,9 @@ def test_guide_documents_routes_limits_and_has_no_credentials() -> None:
     assert "50,000,000" in text
     assert "1 to 1000" in text
     assert "No date-span maximum is set." in text
-    assert "No request quota is set." in text
+    assert "A loopback client is not rate limited." in text
+    assert "60 requests per 60 seconds" in text
+    assert "provisional until staging measurements" in text
     assert "That release is not available." in text
     assert "start_date must be on or before end_date" in text
     assert "Retry-After" in text

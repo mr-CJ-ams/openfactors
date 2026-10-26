@@ -1,7 +1,7 @@
-"""One public error body. No request quota is configured.
+"""One public error body.
 
 A limiter may refuse one request and supply its own Retry-After seconds.
-This module does not choose that number.
+This module does not choose that number. The public window lives in the guard.
 """
 
 from __future__ import annotations

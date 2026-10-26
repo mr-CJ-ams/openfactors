@@ -177,18 +177,32 @@ def test_password_stays_out_of_the_psql_arguments(monkeypatch: pytest.MonkeyPatc
     )
     captured: dict[str, object] = {}
 
-    def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        env = kwargs["env"]
-        assert isinstance(env, dict)
-        password_file = Path(str(env["PGPASSFILE"]))
-        captured["command"] = command
-        captured["env"] = env
-        captured["shell"] = kwargs["shell"]
-        captured["input"] = kwargs["input"]
-        captured["pgpass"] = password_file.read_text(encoding="utf-8")
-        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+    class FakeProcess:
+        def __init__(self, command: list[str], **kwargs: object) -> None:
+            env = kwargs["env"]
+            assert isinstance(env, dict)
+            password_file = Path(str(env["PGPASSFILE"]))
+            captured["command"] = command
+            captured["env"] = env
+            captured["shell"] = kwargs["shell"]
+            captured["pgpass"] = password_file.read_text(encoding="utf-8")
+            self.returncode: int | None = None
 
-    monkeypatch.setattr("ops.api_read.subprocess.run", fake_run)
+        def communicate(
+            self, input: str | None = None, timeout: float | None = None
+        ) -> tuple[str, str]:
+            captured["input"] = input
+            captured["timeout"] = timeout
+            self.returncode = 0
+            return "", ""
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def kill(self) -> None:
+            self.returncode = -9
+
+    monkeypatch.setattr("ops.api_read.subprocess.Popen", FakeProcess)
     monkeypatch.setenv("PGPASSWORD", _PASSWORD)
     monkeypatch.setenv("PGSSLMODE", "disable")
     run_query(
@@ -212,6 +226,7 @@ def test_password_stays_out_of_the_psql_arguments(monkeypatch: pytest.MonkeyPatc
     assert "PGPASSFILE" in env
     assert not Path(str(env["PGPASSFILE"])).exists()
     assert any(part == "location_id=ph-manila' OR '1'='1" for part in command)
+    assert captured["timeout"] == 10
     assert "ph-manila" not in str(captured["input"])
     assert _PASSWORD in str(captured["pgpass"])
     assert "docker" not in rendered

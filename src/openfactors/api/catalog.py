@@ -12,9 +12,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from ops.api_read import ApiReadError, bind_address, export_directory, read_sql
+from ops.api_read import ApiReadError, bind_address, export_directory, export_root, read_sql
 
 from openfactors.api.errors import Limiter, api_error, limit_response
+from openfactors.api.export_limits import sweep_unfinished_exports
+from openfactors.api.guard import (
+    ClientAddressError,
+    admission,
+    apply_socket_timeout,
+    trusted_proxies,
+)
 
 CATALOG_PATH = "/api/v1/datasets"
 DATASET_PATH = "/api/v1/datasets/daily-external-factors-ph"
@@ -290,6 +297,11 @@ def open_catalog(
     port: int | None = None,
 ) -> ThreadingHTTPServer:
     """Bind the catalog. The default is 127.0.0.1:8000."""
+    try:
+        trusted_proxies()
+    except ClientAddressError:
+        raise SystemExit("OPENFACTORS_API_TRUSTED_PROXIES must list IP addresses.") from None
+    sweep_unfinished_exports(export_root(environment))
     bind_host, bind_port = bind_address(host, port)
 
     from openfactors.api.factors import load_export_rows, load_factor_page
@@ -354,6 +366,16 @@ def catalog_server(
     resolve = load_release or (lambda _release_id: None)
 
     class Handler(BaseHTTPRequestHandler):
+        def setup(self) -> None:
+            super().setup()
+            apply_socket_timeout(self.request)
+
+        def handle(self) -> None:
+            try:
+                super().handle()
+            except TimeoutError:
+                return
+
         def do_GET(self) -> None:  # noqa: N802
             self._respond("GET")
 
@@ -370,17 +392,28 @@ def catalog_server(
             self._respond("DELETE")
 
         def _respond(self, method: str) -> None:
-            status, headers, payload = _dispatch(
-                method,
-                self.path,
-                load_rows=load_rows,
-                load_release=resolve,
-                load_factors=load_factors,
-                load_export=load_export,
-                limiter=limiter,
-                request_headers=self.headers,
-                artifact_dir=artifact_dir,
-            )
+            try:
+                peer = self.client_address[0]
+                retry = admission(str(peer), self.headers)
+            except ClientAddressError:
+                status, headers, payload = (
+                    400,
+                    {},
+                    api_error("MALFORMED_REQUEST", "The request is malformed."),
+                )
+            else:
+                status, headers, payload = _dispatch(
+                    method,
+                    self.path,
+                    load_rows=load_rows,
+                    load_release=resolve,
+                    load_factors=load_factors,
+                    load_export=load_export,
+                    limiter=limiter,
+                    request_headers=self.headers,
+                    artifact_dir=artifact_dir,
+                    rate_retry=retry,
+                )
             if observe is not None:
                 observe(self.path, status)
             if isinstance(payload, bytes):
@@ -414,11 +447,14 @@ def _dispatch(
     limiter: Limiter | None = None,
     request_headers: object | None = None,
     artifact_dir: Callable[[str], Path] | None = None,
+    rate_retry: int | None = None,
 ) -> tuple[int, dict[str, str], dict | bytes]:
     path, _query = _split_target(target)
     limited = limit_response(method, path, limiter)
     if limited is not None:
         return limited
+    if rate_retry is not None:
+        return limit_response(method, path, lambda _method, _path: rate_retry)
     if path == "/openapi.json":
         from openfactors.api.openapi import handle_openapi
 
