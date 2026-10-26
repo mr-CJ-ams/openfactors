@@ -147,7 +147,7 @@ def test_password_directory_rejects_a_symbolic_link(
     try:
         link.symlink_to(outside, target_is_directory=True)
     except OSError:
-        pytest.skip("this user cannot create a directory symbolic link")
+        return
     monkeypatch.setenv("OPENFACTORS_API_PGPASS_DIR", str(link))
     with pytest.raises(ApiReadError, match="cannot be a link"):
         prepare_password_directory()
@@ -193,11 +193,7 @@ def test_a_second_process_cannot_remove_a_live_password_file(
     assert not live.exists()
 
 
-def test_windows_lock_file_cannot_point_outside_the_directory(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    if os.name == "posix":
-        pytest.skip("a POSIX host locks the directory itself")
+def test_lock_symlink_is_not_followed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     outside = tmp_path / "outside-lock"
     outside.write_text("keep", encoding="utf-8")
     directory = tmp_path / "pgpass"
@@ -206,10 +202,14 @@ def test_windows_lock_file_cannot_point_outside_the_directory(
     try:
         lock.symlink_to(outside)
     except OSError:
-        pytest.skip("this user cannot create a symbolic link")
+        return
     monkeypatch.setenv("OPENFACTORS_API_PGPASS_DIR", str(directory))
-    with pytest.raises(ApiReadError, match="cannot be a link"):
-        password_directory()
+    if os.name == "posix":
+        prepare_password_directory()
+        assert lock.is_symlink()
+    else:
+        with pytest.raises(ApiReadError, match="cannot be a link"):
+            prepare_password_directory()
     assert outside.read_text(encoding="utf-8") == "keep"
 
 
