@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import uuid
 from collections.abc import Callable
@@ -11,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from ops.migrate import psql, sql_literal
+from ops.api_read import ApiReadError, bind_address, export_directory, read_sql
 
 from openfactors.api.errors import Limiter, api_error, limit_response
 
@@ -35,7 +36,6 @@ _COLUMN_KEYS = (
     "examples",
 )
 _HEX = set("0123456789abcdefABCDEF")
-_HOST = "127.0.0.1"
 
 
 class CatalogUnavailable(Exception):
@@ -217,8 +217,8 @@ def load_accessible_release(environment: str, release_id: str | None) -> dict | 
         ), 'null'::json)::text;
         """
     else:
-        quoted = sql_literal(str(uuid.UUID(release_id)))
-        query = f"""
+        pinned = str(uuid.UUID(release_id))
+        query = """
         SELECT COALESCE((
           SELECT json_build_object(
             'dataset_id', dataset_id,
@@ -229,10 +229,18 @@ def load_accessible_release(environment: str, release_id: str | None) -> dict | 
             'published_at', published_at
           )
           FROM publish.accessible_releases
-          WHERE release_id = {quoted}::uuid
+          WHERE release_id = :'release_id'::uuid
         ), 'null'::json)::text;
         """
-    completed = psql(environment, "of_api", query, tuples_only=True)
+    try:
+        completed = read_sql(
+            environment,
+            query,
+            variables=None if release_id is None else {"release_id": pinned},
+            tuples_only=True,
+        )
+    except ApiReadError as exc:
+        raise CatalogUnavailable from exc
     if completed.returncode != 0:
         raise CatalogUnavailable
     text = completed.stdout.strip()
@@ -247,22 +255,24 @@ def load_accessible_release(environment: str, release_id: str | None) -> dict | 
 
 
 def load_catalog_rows(environment: str) -> list[dict]:
-    completed = psql(
-        environment,
-        "of_api",
-        """
-        SELECT COALESCE(json_agg(json_build_object(
-          'dataset_id', dataset_id,
-          'active_release_id', active_release_id,
-          'dataset_version', dataset_version,
-          'coverage_start', coverage_start,
-          'coverage_end', coverage_end,
-          'published_at', published_at
-        )), '[]'::json)::text
-        FROM publish.dataset_catalog;
-        """,
-        tuples_only=True,
-    )
+    try:
+        completed = read_sql(
+            environment,
+            """
+            SELECT COALESCE(json_agg(json_build_object(
+              'dataset_id', dataset_id,
+              'active_release_id', active_release_id,
+              'dataset_version', dataset_version,
+              'coverage_start', coverage_start,
+              'coverage_end', coverage_end,
+              'published_at', published_at
+            )), '[]'::json)::text
+            FROM publish.dataset_catalog;
+            """,
+            tuples_only=True,
+        )
+    except ApiReadError as exc:
+        raise CatalogUnavailable from exc
     if completed.returncode != 0:
         raise CatalogUnavailable
     text = completed.stdout.strip()
@@ -274,42 +284,59 @@ def load_catalog_rows(environment: str) -> list[dict]:
     return payload
 
 
-def open_catalog(environment: str, host: str = _HOST, port: int = 8000) -> ThreadingHTTPServer:
-    """Bind the catalog to this computer. Any other address is refused."""
-    if host != _HOST:
-        raise ValueError("The catalog listens on 127.0.0.1.")
-    from ops.withdraw import export_dir
+def open_catalog(
+    environment: str,
+    host: str | None = None,
+    port: int | None = None,
+) -> ThreadingHTTPServer:
+    """Bind the catalog. The default is 127.0.0.1:8000."""
+    bind_host, bind_port = bind_address(host, port)
 
     from openfactors.api.factors import load_export_rows, load_factor_page
 
     return catalog_server(
         lambda: load_catalog_rows(environment),
-        host,
-        port,
+        bind_host,
+        bind_port,
         load_release=lambda release_id: load_accessible_release(environment, release_id),
         load_factors=lambda **filters: load_factor_page(environment, **filters),
         load_export=lambda **filters: load_export_rows(environment, **filters),
-        artifact_dir=lambda release_id: export_dir(environment, release_id),
+        artifact_dir=lambda release_id: export_directory(environment, release_id),
     )
 
 
-def serve_catalog(environment: str, host: str = _HOST, port: int = 8000) -> None:
+def serve_catalog(
+    environment: str,
+    host: str | None = None,
+    port: int | None = None,
+) -> None:
     open_catalog(environment, host, port).serve_forever()
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Listen on 127.0.0.1 for the local published release."""
+    """Listen for the published release. The default bind is 127.0.0.1:8000."""
     args = list(sys.argv[1:] if argv is None else argv)
     if args:
-        raise SystemExit("The local catalog listens on 127.0.0.1 and takes no arguments.")
-    from ops.local_stack import dev_database_ready
+        raise SystemExit("The catalog listens on 127.0.0.1 by default and takes no arguments.")
+    from ops.api_read import load_database
 
-    if not dev_database_ready():
-        raise SystemExit(
-            "The local dev database is not running. Start it, then run this command again."
-        )
-    print("http://127.0.0.1:8000", flush=True)
-    serve_catalog("dev")
+    try:
+        load_database("dev")
+    except ApiReadError as exc:
+        raise SystemExit(str(exc)) from exc
+    if not os.environ.get("OPENFACTORS_API_PGHOST", "").strip():
+        from ops.local_stack import dev_database_ready
+
+        if not dev_database_ready():
+            raise SystemExit(
+                "The local dev database is not running. Start it, then run this command again."
+            )
+    try:
+        host, port = bind_address()
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    print(f"http://{host}:{port}", flush=True)
+    serve_catalog("dev", host, port)
     return 0
 
 

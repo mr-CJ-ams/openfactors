@@ -12,11 +12,11 @@ This record compares provider terms. It does not deploy, does not set a date spa
 
 ## What this repository actually runs
 
-The public process is the Python standard-library server in `src/openfactors/api/catalog.py`. It listens on 127.0.0.1 only. It is not FastAPI, and there is no React app. The catalog, dictionary, and API guide are HTML from that same process.
+The public process is the Python standard-library server in `src/openfactors/api/catalog.py`. It listens on 127.0.0.1:8000 unless `OPENFACTORS_API_BIND_HOST` is set. It is not FastAPI, and there is no React app. The catalog, dictionary, and API guide are HTML from that same process.
 
-The API reads Postgres by running `psql` inside the local Docker container (`ops/migrate.py`). It does not open a hosted database URL. Dev Postgres is `postgres:16.10` on 127.0.0.1:55430, with TLS required. Object storage is the local `pgsty/silo` container, also on 127.0.0.1. Migrations are `ops/migrations/0001` through `0011`. Promotion is `ops/promote.py`. `python -m openfactors.orchestration.release` records the public beta as not deployed.
+The API reads Postgres as `of_api` through the `psql` client (`ops/api_read.py`), not through Docker Compose exec. Local reads use `sslmode=require`: the session is encrypted and the self-signed certificate is not verified. A configured host must use `sslmode=verify-full` and `OPENFACTORS_API_PGSSLROOTCERT`. Migrations, ingestion, dbt, and promotion still use their own roles and Compose. Dev Postgres is `postgres:16.10` on 127.0.0.1:55430. Object storage is the local `pgsty/silo` container, also on 127.0.0.1. Migrations are `ops/migrations/0001` through `0011`. Promotion is `ops/promote.py`. `python -m openfactors.orchestration.release` records the public beta as not deployed. No host is selected.
 
-CI is `.github/workflows/ci.yml`. It lints, scans secrets, checks the contract, diffs OpenAPI, and runs pytest. It does not deploy and it does not start the database. Secrets for the local stack live under `ops/local/runtime/`, which is gitignored.
+CI is `.github/workflows/ci.yml`. It lints, scans secrets, checks the contract, diffs OpenAPI, installs the PostgreSQL client, starts empty dev and test databases, and runs pytest. It does not deploy. Secrets for the local stack live under `ops/local/runtime/`, which is gitignored.
 
 The five city names and coordinates are already in ADR-001 and `contracts/fixtures/pilot_locations.json`. The product owner confirmed those cities on 2026-10-25. PSGC codes are not in that ADR. This record does not add them.
 

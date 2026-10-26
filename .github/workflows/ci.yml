@@ -33,6 +33,8 @@ jobs:
       # Passwords are generated under ops/local/runtime and are not uploaded.
       # The stored historical load is not copied here.
       # The live Open-Meteo probe remains the only permitted skip.
+      - name: Install the PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
       - name: Start isolated databases
         run: |
           python -m ops.local_stack up dev

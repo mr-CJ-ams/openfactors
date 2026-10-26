@@ -24,6 +24,7 @@ def test_dbt_executable_matches_this_platform() -> None:
 
 def test_ci_starts_isolated_databases_without_uploading_secrets() -> None:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "postgresql-client" in workflow
     assert "python -m ops.local_stack up dev" in workflow
     assert "python -m ops.local_stack up test" in workflow
     assert "timeout-minutes: 45" in workflow

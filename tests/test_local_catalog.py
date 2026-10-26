@@ -18,8 +18,9 @@ FACTORS = "/api/v1/factors/daily?location_id=ph-manila&start_date=2018-01-01&end
 
 
 def test_catalog_command_stays_on_this_computer(monkeypatch: pytest.MonkeyPatch) -> None:
-    with pytest.raises(ValueError, match="127.0.0.1"):
-        open_catalog("dev", host="0.0.0.0", port=0)
+    monkeypatch.delenv("OPENFACTORS_API_BIND_HOST", raising=False)
+    monkeypatch.delenv("OPENFACTORS_API_BIND_PORT", raising=False)
+    monkeypatch.delenv("OPENFACTORS_API_PGHOST", raising=False)
     with pytest.raises(SystemExit, match="no arguments"):
         main(["--host", "0.0.0.0"])
     monkeypatch.setattr("ops.local_stack.dev_database_ready", lambda: False)

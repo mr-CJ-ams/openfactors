@@ -9,7 +9,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from ops.migrate import psql, sql_literal
+from ops.api_read import ApiReadError, read_sql, sql_identifiers
 
 from openfactors.api.catalog import (
     CatalogUnavailable,
@@ -103,25 +103,21 @@ def load_factor_page(
     page_size: int,
 ) -> dict:
     names = _column_names()
-    selected = ", ".join(names)
-    quoted_release = sql_literal(str(uuid.UUID(release_id)))
-    quoted_location = sql_literal(location_id)
-    quoted_start = sql_literal(start_date)
-    quoted_end = sql_literal(end_date)
+    selected = sql_identifiers(names)
     offset = (page - 1) * page_size
     query = f"""
     WITH matched AS (
       SELECT {selected}
       FROM publish.accessible_factors
-      WHERE release_id = {quoted_release}::uuid
-        AND location_id = {quoted_location}
-        AND date >= {quoted_start}::date
-        AND date <= {quoted_end}::date
+      WHERE release_id = :'release_id'::uuid
+        AND location_id = :'location_id'
+        AND date >= :'start_date'::date
+        AND date <= :'end_date'::date
     ),
     paged AS (
       SELECT * FROM matched
       ORDER BY date ASC, location_id ASC
-      LIMIT {page_size} OFFSET {offset}
+      LIMIT :page_size OFFSET :row_offset
     )
     SELECT json_build_object(
       'total', (SELECT count(*) FROM matched),
@@ -131,7 +127,21 @@ def load_factor_page(
       ), '[]'::json)
     )::text;
     """
-    completed = psql(environment, "of_api", query, tuples_only=True)
+    try:
+        completed = read_sql(
+            environment,
+            query,
+            variables={
+                "release_id": str(uuid.UUID(release_id)),
+                "location_id": location_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+            integers={"page_size": page_size, "row_offset": offset},
+            tuples_only=True,
+        )
+    except ApiReadError as exc:
+        raise CatalogUnavailable from exc
     if completed.returncode != 0:
         raise CatalogUnavailable
     payload = _json_line(completed.stdout)
@@ -152,26 +162,35 @@ def load_export_rows(
     end_date: str,
 ) -> list[dict]:
     names = _column_names()
-    selected = ", ".join(names)
-    quoted_release = sql_literal(str(uuid.UUID(release_id)))
-    quoted_location = sql_literal(location_id)
-    quoted_start = sql_literal(start_date)
-    quoted_end = sql_literal(end_date)
+    selected = sql_identifiers(names)
     query = f"""
     WITH matched AS (
       SELECT {selected}
       FROM publish.accessible_factors
-      WHERE release_id = {quoted_release}::uuid
-        AND location_id = {quoted_location}
-        AND date >= {quoted_start}::date
-        AND date <= {quoted_end}::date
+      WHERE release_id = :'release_id'::uuid
+        AND location_id = :'location_id'
+        AND date >= :'start_date'::date
+        AND date <= :'end_date'::date
     )
     SELECT COALESCE((
       SELECT json_agg(to_jsonb(matched) ORDER BY matched.date, matched.location_id)
       FROM matched
     ), '[]'::json)::text;
     """
-    completed = psql(environment, "of_api", query, tuples_only=True)
+    try:
+        completed = read_sql(
+            environment,
+            query,
+            variables={
+                "release_id": str(uuid.UUID(release_id)),
+                "location_id": location_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+            tuples_only=True,
+        )
+    except ApiReadError as exc:
+        raise CatalogUnavailable from exc
     if completed.returncode != 0:
         raise CatalogUnavailable
     payload = _json_value(completed.stdout)

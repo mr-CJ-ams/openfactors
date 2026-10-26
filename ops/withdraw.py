@@ -11,7 +11,6 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from ops.local_stack import runtime_dir
 from ops.migrate import psql, sql_literal
 from ops.promote import DATASET_ID, PROMOTION_LOCK_KEY
 
@@ -33,7 +32,9 @@ class WithdrawalResult:
 
 
 def export_dir(environment: str, release_id: str) -> Path:
-    return runtime_dir(environment) / "exports" / _uuid_text(release_id)
+    from ops.api_read import export_directory
+
+    return export_directory(environment, release_id)
 
 
 def suspend_source(environment: str, source_id: str) -> WithdrawalResult:

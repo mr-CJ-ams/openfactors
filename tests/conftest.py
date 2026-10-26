@@ -8,6 +8,10 @@ import pytest
 
 _ALLOWED_SKIP = "test_live_2018_01_01_matches_recorded_probe"
 _REQUIRED = (
+    "test_api_read_cannot_read_raw_or_admin_tables",
+    "test_api_read_matches_the_compose_catalog_row",
+    "test_api_read_verify_full_accepts_the_local_ca",
+    "test_api_read_verify_full_rejects_an_untrusted_file",
     "test_api_role_can_read_only_the_serving_view",
     "test_candidate_schema_snapshot",
     "test_current_spine_reports_coverage_and_publish_stays_empty",
