@@ -145,7 +145,8 @@ def docker_available() -> bool:
             [docker_executable(), "info"],
             capture_output=True,
             text=True,
-            timeout=20,
+            # Docker Desktop can take longer than a short probe to answer.
+            timeout=60,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
