@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 from openfactors.api.catalog import _bad_escape, _error, _split_target
+from openfactors.api.page_chrome import document
 
 PAGE_PATH = "/docs"
 _ROOT = Path(__file__).resolve().parents[3]
@@ -137,38 +138,14 @@ def _special(line: str) -> bool:
 
 
 def _document(main: str) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpenFactors API guide</title>
-<style>
-body {{
-  font-family: "Segoe UI", sans-serif;
-  line-height: 1.5;
-  max-width: 46rem;
-  margin: 2rem auto;
-  padding: 0 1rem;
-  color: #1a1a1a;
-  background: #fff;
-}}
-a:focus {{ outline: 3px solid #1a1a1a; outline-offset: 2px; }}
-pre {{ overflow-x: auto; }}
-</style>
-</head>
-<body>
-<a href="#guide">Skip to guide</a>
-<header>
-<h1>OpenFactors</h1>
-<p><a href="/">Back to catalog</a></p>
-</header>
-<main id="guide">
-{main}
-</main>
-</body>
-</html>
-"""
+    return document(
+        title="OpenFactors API guide",
+        main_id="guide",
+        skip="Skip to guide",
+        main=main,
+        current="/docs",
+        heading=False,
+    )
 
 
 def _text(value: object) -> str:

@@ -24,6 +24,7 @@ from openfactors.api.catalog import (
 )
 from openfactors.api.csv_export import EXPORT_PATH
 from openfactors.api.factors import _iso_date, _single
+from openfactors.api.page_chrome import document
 
 PAGE_PATH = "/datasets/daily-external-factors-ph"
 _DATASET_ID = "daily_external_factors_ph"
@@ -123,8 +124,13 @@ def render_dataset_page(
         )
     generated = _text(generated_at)
     main = f"""<h2>Dictionary</h2>
+<p>These 12 columns are the public file.
+The field name is the column heading in a download.
+The description is the everyday meaning.
+A blank weather value was not available. A zero is a real zero.</p>
 {_table(dictionary)}
 <h2>Download</h2>
+<p>Choose one city and the dates you need. You do not need an account.</p>
 {active}
 {_form(locations, values, errors)}
 {download}
@@ -216,16 +222,17 @@ def _download(values: dict[str, str], release: dict) -> str:
     shown = _text(pinned)
     version = _text(release["dataset_version"])
     published = _text(release["published_at"])
-    return f"""<h3>Pinned release</h3>
+    return f"""<h3>Your file</h3>
+<p>This download is pinned to one published release, so a later publication does not change it.</p>
 <p>Pinned release <code id="pinned_release">{shown}</code>.</p>
 <p>Schema version {version}.</p>
 <p>Last successful publication <time datetime="{published}">{published}</time>.</p>
-<p><a href="{href}">Download {label}</a> for release {shown}.</p>"""
+<p><a class="download" href="{href}">Download {label}</a> for release {shown}.</p>"""
 
 
 def _table(dictionary: dict) -> str:
     rows = "\n".join(_field(column) for column in dictionary["columns"])
-    return f"""<table>
+    return f"""<div class="table-wrap"><table>
 <caption>Public fields for {_text(dictionary["dataset_id"])}</caption>
 <thead>
 <tr>
@@ -240,7 +247,7 @@ def _table(dictionary: dict) -> str:
 <tbody>
 {rows}
 </tbody>
-</table>"""
+</table></div>"""
 
 
 def _field(column: dict) -> str:
@@ -291,7 +298,7 @@ def _form(
 <p>{_label("release_id", "Release")}
 {_control("release_id", errors, first, _release_input(values))}
 <span id="release_help">{release_help}</span></p>
-<p id="download_help">{limit_help}</p>
+<p class="help" id="download_help">{limit_help}</p>
 <button type="submit">Review download</button>
 </form>"""
 
@@ -385,42 +392,13 @@ def _location_choices() -> list[tuple[str, str]]:
 
 
 def _document(main: str) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpenFactors dictionary</title>
-<style>
-body {{
-  font-family: "Segoe UI", sans-serif;
-  line-height: 1.5;
-  max-width: 48rem;
-  margin: 2rem auto;
-  padding: 0 1rem;
-  color: #1a1a1a;
-  background: #fff;
-}}
-a:focus, button:focus, input:focus, select:focus {{
-  outline: 3px solid #1a1a1a;
-  outline-offset: 2px;
-}}
-</style>
-</head>
-<body>
-<a href="#dictionary">Skip to dictionary</a>
-<header>
-<h1>OpenFactors</h1>
-<p>Weather and holidays are contextual factors, not proof of causation for business outcomes.</p>
-<p><a href="/">Back to catalog</a></p>
-<p><a href="/docs">API guide</a></p>
-</header>
-<main id="dictionary">
-{main}
-</main>
-</body>
-</html>
-"""
+    return document(
+        title="OpenFactors dictionary",
+        main_id="dictionary",
+        skip="Skip to dictionary",
+        main=main,
+        current="/datasets/daily-external-factors-ph",
+    )
 
 
 def _text(value: object) -> str:
