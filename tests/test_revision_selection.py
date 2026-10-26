@@ -5,13 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import socket
 import subprocess
 import sys
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from ops.local_stack import dev_database_ready, load_secrets
+from ops.local_stack import ENVIRONMENTS, docker_available, load_secrets, up
 from ops.migrate import apply, psql
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +37,9 @@ APPROVED_LOCATION_IDS = (
     "ph-manila",
     "ph-tacloban",
 )
+# The dev database holds the stored ERA5 history. This check needs a warehouse
+# whose only weather rows are the fixtures below.
+ENVIRONMENT = "test"
 
 
 def _cases() -> dict:
@@ -93,14 +97,14 @@ def _records() -> dict[str, tuple[str, str | None, dict, str, str | None]]:
             "open-meteo-era5",
             "ph-manila",
             _weather("2018-01-05", 10.0, 0.0),
-            "2026-08-01 00:00:00+08",
+            "2099-08-01 00:00:00+08",
             None,
         ),
         "tie_high": (
             "open-meteo-era5",
             "ph-manila",
             _weather("2018-01-05", 11.0, 0.0),
-            "2026-08-01 00:00:00+08",
+            "2099-08-01 00:00:00+08",
             None,
         ),
         "old_calendar": (
@@ -163,8 +167,36 @@ def _digest(name: str) -> str:
     return hashlib.sha256(json.dumps(payload).encode()).hexdigest()
 
 
+def _database_ready() -> bool:
+    if not docker_available():
+        return False
+    port = int(ENVIRONMENTS[ENVIRONMENT]["postgres_port"])
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=2):
+            return True
+    except OSError:
+        return False
+
+
+def _ensure_isolated_database() -> None:
+    if not docker_available():
+        pytest.skip("Docker is required to select revisions.")
+    if _database_ready():
+        return
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        pytest.skip("The isolated test database is not running.")
+    try:
+        up(ENVIRONMENT)
+    except subprocess.CalledProcessError:
+        # Compose --wait reports one-shot cert and bucket tasks after Postgres is ready.
+        if not _database_ready():
+            raise
+    if not _database_ready():
+        pytest.fail("The isolated test database did not start.")
+
+
 def _dbt_env() -> dict[str, str]:
-    secrets = load_secrets("dev")
+    secrets = load_secrets(ENVIRONMENT)
     env = os.environ.copy()
     env["OPENFACTORS_PGHOST"] = "127.0.0.1"
     env["OPENFACTORS_PGPORT"] = secrets["POSTGRES_PORT"]
@@ -246,7 +278,7 @@ def _seed_sql() -> str:
 def _cleanup() -> None:
     artifact_list = ", ".join(f"'{artifact_id}'" for artifact_id in ARTIFACTS.values())
     completed = psql(
-        "dev",
+        ENVIRONMENT,
         "of_admin",
         f"""
         BEGIN;
@@ -262,7 +294,7 @@ def _cleanup() -> None:
 
 
 def _rows(sql: str) -> list[str]:
-    completed = psql("dev", "of_admin", sql, tuples_only=True)
+    completed = psql(ENVIRONMENT, "of_admin", sql, tuples_only=True)
     assert completed.returncode == 0, completed.stderr
     return [line for line in completed.stdout.splitlines() if line]
 
@@ -278,16 +310,15 @@ def test_revision_fixture_rejects_a_publication_calendar() -> None:
 
 
 def test_one_weather_revision_and_one_holiday_broadcast() -> None:
-    if not dev_database_ready():
-        pytest.skip("Docker is required to select revisions.")
     if not Path(sys.executable).with_name("dbt.exe").is_file():
         pytest.skip("dbt is not installed in the project environment.")
+    _ensure_isolated_database()
     cases = _cases()
-    apply("dev")
+    apply(ENVIRONMENT)
     env = _dbt_env()
     _cleanup()
     try:
-        seeded = psql("dev", "of_admin", _seed_sql())
+        seeded = psql(ENVIRONMENT, "of_admin", _seed_sql())
         assert seeded.returncode == 0, seeded.stderr
         first = _run_dbt(env)
         assert first.returncode == 0, first.stdout + first.stderr
@@ -406,7 +437,12 @@ def test_one_weather_revision_and_one_holiday_broadcast() -> None:
             WHERE date = DATE '2018-01-06' AND location_id = 'ph-manila';
             """
         )
-        assert holiday_row == [f"{holiday['holiday_name']}|missing"]
+        stored_history = _rows(
+            "SELECT count(*)::text FROM control.raw_manifests "
+            "WHERE request_fingerprint LIKE 'stored-open-meteo-era5-%';"
+        )
+        weather_status = "available" if stored_history == ["5"] else "missing"
+        assert holiday_row == [f"{holiday['holiday_name']}|{weather_status}"]
         second = _run_dbt(env)
         assert second.returncode == 0, second.stdout + second.stderr
         again = _rows(

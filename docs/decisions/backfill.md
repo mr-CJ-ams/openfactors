@@ -1,6 +1,6 @@
 # Historical backfill
 
-The historical backfill is one local command: `python -m openfactors.orchestration.backfill`. It is not an HTTP route. Airflow is not installed. The daily command still refuses a date interval.
+The historical backfill is one local command: `python -m openfactors.orchestration.backfill`. It is not an HTTP route. The learning Airflow project does not replace this command. The daily command still refuses a date interval.
 
 The command requires a source id (`open-meteo-era5` or `ph-official-gazette`), one approved pilot location or `all`, an inclusive start and end date, a named operator, and a reason. `anonymous` is rejected. A location id outside the approved pilot list is rejected. The start cannot be before `2018-01-01`. The end cannot be after the current Asia/Manila date. No maximum number of days is set, and no request quota is set.
 

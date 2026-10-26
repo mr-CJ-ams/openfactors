@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from ops.local_stack import backup, dev_database_ready, restore_isolated
 from ops.migrate import apply, psql
-from ops.promote import promote_release, rollback_release
+from ops.promote import active_release_id, promote_release, restore_active_release, rollback_release
 from ops.releases import persist_manifest
 from tests.test_ingestion_runs import (
     KEEP,
@@ -190,6 +190,8 @@ def test_isolated_restore_and_release_rollback() -> None:
     assert evidence["rto_target_seconds"] is None
     assert evidence["measured_restore_seconds"] >= 0
     assert evidence["fact_count"] == _fact_count()
+    before_facts = _fact_count()
+    previous = active_release_id("dev")
     release_a = str(uuid.uuid4())
     release_b = str(uuid.uuid4())
     try:
@@ -210,7 +212,8 @@ def test_isolated_restore_and_release_rollback() -> None:
         assert _stored_count(release_b) == "1"
     finally:
         _cleanup([release_a, release_b])
-    assert _fact_count() == 0
+        restore_active_release("dev", previous)
+    assert _fact_count() == before_facts
 
 
 def _approved(contract: dict, row: dict, release_id: str):

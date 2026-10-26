@@ -18,7 +18,7 @@ from contracts.calendar import date_parts
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
 from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
-from ops.promote import promote_release
+from ops.promote import active_release_id, promote_release, restore_active_release
 from ops.releases import persist_manifest
 from ops.withdraw import suspend_source
 from tests.test_release_manifest import _build, _row
@@ -175,6 +175,7 @@ def test_live_pin_stays_stable_when_a_newer_release_is_active() -> None:
     if not dev_database_ready():
         pytest.skip("Docker is required to page a published release.")
     apply("dev")
+    previous = active_release_id("dev")
     prior = _source_status()
     older = str(uuid.uuid4())
     newer = str(uuid.uuid4())
@@ -225,6 +226,7 @@ def test_live_pin_stays_stable_when_a_newer_release_is_active() -> None:
     finally:
         _set_source_status(prior)
         _cleanup([older, newer])
+        restore_active_release("dev", previous)
         server.shutdown()
         server.server_close()
 

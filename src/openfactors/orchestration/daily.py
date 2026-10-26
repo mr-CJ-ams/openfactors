@@ -1,4 +1,6 @@
-"""One local daily attempt. Airflow is not installed, and this is not an HTTP route.
+"""One local daily attempt. This command is the production scheduler.
+
+The learning Airflow project does not replace it. This is not an HTTP route.
 
 The attempt runs weather, holidays, transform, validation, and publish, in that
 order. A failed step is not followed by publish. Transient failures retry up

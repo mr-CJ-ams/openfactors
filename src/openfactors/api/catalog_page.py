@@ -23,13 +23,11 @@ from openfactors.api.catalog import (
     catalog_payload,
     dictionary_payload,
 )
+from openfactors.api.page_chrome import document
 
 PAGE_PATH = "/"
 _UNAVAILABLE = "The catalog is temporarily unavailable."
 _EMPTY = "No published dataset is available."
-_CAVEAT = (
-    "Weather and holidays are contextual factors, not proof of causation for business outcomes."
-)
 
 
 def handle_catalog_page(
@@ -89,13 +87,16 @@ def render_catalog_page(payload: dict, described: list[dict]) -> str:
         listing = f"<p>{_EMPTY}</p>"
     generated = _text(payload["generated_at"])
     return _document(
-        f"<h2>Published datasets</h2>\n{listing}\n"
+        "<h2>What you can download</h2>\n"
+        "<p>Each dataset names its cities, its dates, where the figures come from, "
+        "and when it was last published.</p>\n"
+        f"{listing}\n"
         f'<p>Catalog response generated <time datetime="{generated}">{generated}</time>.</p>'
     )
 
 
 def render_unavailable() -> str:
-    return _document(f"<h2>Published datasets</h2>\n<p>{_UNAVAILABLE}</p>")
+    return _document(f"<h2>What you can download</h2>\n<p>{_UNAVAILABLE}</p>")
 
 
 def _described(rows: list[dict], dictionary: dict, registry: dict, generated_at: str) -> list[dict]:
@@ -126,23 +127,28 @@ def _article(dataset: dict, detail: dict) -> str:
     if not gaps:
         gaps = "<li>No gaps are recorded for this release.</li>"
     return f"""<article>
-<h3>{_text(dataset["dataset_id"])}</h3>
-<p>Schema version {version}. Active release {release_id}.</p>
-<h4>Grain</h4>
+<h3>Daily weather and public holidays</h3>
+<p>One row is one city on one calendar day, in Philippine time.</p>
+<dl class="facts">
+<div><dt>Dataset name</dt><dd>{_text(dataset["dataset_id"])}</dd></div>
+<div><dt>Schema version</dt><dd>{version}</dd></div>
+<div><dt>Active release</dt><dd><code>{release_id}</code></dd></div>
+</dl>
+<h4>What one row means</h4>
 <p>{_text(dataset["grain"])}</p>
-<h4>Coverage</h4>
-<p>Geography: {_text(coverage["geographic"])}</p>
+<h4>Where and when</h4>
+<p>Cities: {_text(coverage["geographic"])}</p>
 <p>Dates: {_text(coverage["start"])} through {_text(coverage["end"])}.</p>
 <h4>Last successful publication</h4>
 <p><time datetime="{published}">{published}</time></p>
 <h4>Terms</h4>
 <p>{_text(dataset["license"]["summary"])}</p>
 <p>{_text(dataset["license"]["attribution"])}</p>
-<h4>Sources</h4>
+<h4>Where the figures come from</h4>
 <ul>
 {sources}
 </ul>
-<h4>Gaps</h4>
+<h4>What this release leaves out</h4>
 <ul>
 {gaps}
 </ul>
@@ -163,38 +169,13 @@ def _source(source: dict) -> str:
 
 
 def _document(main: str) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpenFactors catalog</title>
-<style>
-body {{
-  font-family: "Segoe UI", sans-serif;
-  line-height: 1.5;
-  max-width: 42rem;
-  margin: 2rem auto;
-  padding: 0 1rem;
-  color: #1a1a1a;
-  background: #fff;
-}}
-a:focus {{ outline: 3px solid #1a1a1a; outline-offset: 2px; }}
-</style>
-</head>
-<body>
-<a href="#catalog">Skip to catalog</a>
-<header>
-<h1>OpenFactors</h1>
-<p>{_CAVEAT}</p>
-<p><a href="/docs">API guide</a></p>
-</header>
-<main id="catalog">
-{main}
-</main>
-</body>
-</html>
-"""
+    return document(
+        title="OpenFactors catalog",
+        main_id="catalog",
+        skip="Skip to catalog",
+        main=main,
+        current="/",
+    )
 
 
 def _text(value: object) -> str:

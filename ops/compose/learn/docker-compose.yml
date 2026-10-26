@@ -1,0 +1,19 @@
+name: openfactors-learn
+
+services:
+  airflow:
+    image: apache/airflow:2.10.5
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/learn.db
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      PYTHONPATH: /opt/openfactors/src:/opt/openfactors
+    ports:
+      - "127.0.0.1:18080:8080"
+    volumes:
+      - ../../../src:/opt/openfactors/src:ro
+      - ../../../contracts:/opt/openfactors/contracts:ro
+      - ./dags:/opt/airflow/dags:ro
+    command: ["standalone"]
+    restart: "no"

@@ -203,7 +203,7 @@ def test_live_manifest_is_immutable_and_publish_stays_empty() -> None:
         "SELECT count(*)::text FROM publish.active_dataset_release "
         f"WHERE release_id = '{manifest.release_id}';"
     )
-    assert before == after == ["0"]
+    assert before == after
     assert pointer == ["0"]
     for statement in (
         "UPDATE publish.dataset_releases SET schema_version = '9.9.9' "

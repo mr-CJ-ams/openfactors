@@ -43,6 +43,47 @@ def rollback_release(environment: str, release_id: str, *, lock_timeout_s: int =
     _run(environment, _rollback_sql(release_id, lock_timeout_s=_timeout(lock_timeout_s)))
 
 
+def active_release_id(environment: str) -> str | None:
+    lines = _text_lines(
+        environment,
+        "SELECT release_id::text FROM publish.active_dataset_release "
+        f"WHERE dataset_id = {sql_literal(DATASET_ID)};",
+    )
+    return lines[0] if lines else None
+
+
+def restore_active_release(environment: str, previous: str | None) -> None:
+    """Point the local view back at the release that was active before a drill."""
+    if previous is None:
+        return
+    status = _release_status(environment, previous)
+    if status == "published":
+        if active_release_id(environment) != previous:
+            rollback_release(environment, previous)
+        return
+    if status == "withdrawn":
+        from ops.load_stored import restore_withdrawn_release
+
+        restore_withdrawn_release(previous)
+
+
+def _release_status(environment: str, release_id: str) -> str | None:
+    lines = _text_lines(
+        environment,
+        "SELECT status FROM publish.dataset_releases "
+        f"WHERE release_id = {sql_literal(release_id)}::uuid;",
+    )
+    return lines[0] if lines else None
+
+
+def _text_lines(environment: str, sql: str) -> list[str]:
+    completed = psql(environment, "of_admin", sql, tuples_only=True)
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise RuntimeError(detail or "The local database query failed.")
+    return [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+
+
 def _promote_sql(
     manifest: ReleaseManifest,
     rows: list[dict],

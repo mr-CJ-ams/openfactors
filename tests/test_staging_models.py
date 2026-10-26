@@ -228,9 +228,10 @@ def test_staging_models_parse_units_and_rebuild_the_same_rows() -> None:
             """
         )
         holidays = _rows(
-            """
+            f"""
             SELECT date::text || '|' || holiday_name || '|' || holiday_category
             FROM staging.stg_holidays
+            WHERE artifact_id = '{ARTIFACTS["holiday"]}'
             ORDER BY 1;
             """
         )

@@ -3,6 +3,7 @@
 import io
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -59,6 +60,74 @@ def test_release_report_fails_closed() -> None:
         build_release({})
     with pytest.raises(ConnectorError, match="needs signatures"):
         build_release({"decision": "go", "signatures_present": False, "items": []})
+
+
+def test_hosting_proposal_does_not_approve_a_public_release() -> None:
+    text = (
+        Path(__file__).resolve().parents[1] / "docs/decisions/ADR-006-zero-cost-public-hosting.md"
+    ).read_text(encoding="utf-8")
+    assert "Not approved" in text
+    assert "No host is selected" in text
+    for phrase in (
+        "Date span and rate numbers are approved.",
+        "Hosted recovery-time targets are approved.",
+        "The hosted load profile is signed off.",
+        "Public hosting is approved.",
+        "Paging is approved.",
+        "Product owner signed",
+        "Technical owner signed",
+        "Residual risks signed",
+        "Rollback plan signed",
+        "Production version:",
+    ):
+        assert phrase not in text
+
+
+def test_limits_proposal_does_not_approve_or_enforce() -> None:
+    text = (
+        Path(__file__).resolve().parents[1] / "docs/decisions/ADR-008-public-beta-query-limits.md"
+    ).read_text(encoding="utf-8")
+    history = (
+        Path(__file__).resolve().parents[1] / "docs/decisions/ADR-005-contract-reconciliation.md"
+    ).read_text(encoding="utf-8")
+    assert "Reconsidered" in text
+    assert "Not approved" in text
+    assert "Not enforced" in text
+    assert "not measured benchmarks" in text
+    assert "The 366-day proposal is reconsidered" in text
+    assert "60 requests per minute per client IP" in text
+    assert "100,000 rows" in text
+    assert "1,000" in text
+    assert "3,221" in text
+    assert "286,098" in text
+    assert "No date-span maximum and no rate-limit numbers." in history
+    for phrase in (
+        "Date span and rate numbers are approved.",
+        "Hosted recovery-time targets are approved.",
+        "The hosted load profile is signed off.",
+        "Public hosting is approved.",
+        "Paging is approved.",
+        "Product owner signed",
+        "Technical owner signed",
+        "Residual risks signed",
+        "Rollback plan signed",
+        "Production version:",
+    ):
+        assert phrase not in text
+    from openfactors.api.export_limits import MAX_EXPORT_BYTES, MAX_EXPORT_ROWS
+    from openfactors.api.factors import _filters
+
+    assert MAX_EXPORT_ROWS == 100_000
+    assert MAX_EXPORT_BYTES == 50_000_000
+    long_span = _filters(
+        {
+            "location_id": ["ph-manila"],
+            "start_date": ["2024-01-01"],
+            "end_date": ["2025-01-01"],
+        }
+    )
+    assert "error" not in long_span
+    assert long_span["page_size"] == 100
 
 
 def test_release_command_prints_the_refusal() -> None:
