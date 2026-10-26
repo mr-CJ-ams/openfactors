@@ -26,12 +26,19 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import uuid
 from pathlib import Path
 
 from ops.local_stack import load_secrets, require_environment, runtime_dir
 
 API_ROLE = "of_api"
+# Provisional until staging measurements. The statement limit is the SQL only.
+# The subprocess deadline also covers process startup and exit.
+API_STATEMENT_TIMEOUT = "5s"
+API_SUBPROCESS_DEADLINE_SECONDS = 10
+API_PROCESS_SLOTS = 4
+_SLOTS = threading.BoundedSemaphore(API_PROCESS_SLOTS)
 LOCAL_SSLMODE = "require"
 HOSTED_SSLMODE = "verify-full"
 _ALLOWED_SSLMODES = frozenset({LOCAL_SSLMODE, HOSTED_SSLMODE})
@@ -92,21 +99,23 @@ def bind_address(host: str | None = None, port: int | None = None) -> tuple[str,
     return cleaned, port
 
 
+def export_root(environment: str) -> Path:
+    """Return the directory that holds per-release export folders."""
+    configured = os.environ.get("OPENFACTORS_API_EXPORT_DIR", "").strip()
+    if configured:
+        if any(ord(character) < 32 for character in configured):
+            raise ValueError("The export directory is not a usable path.")
+        return Path(configured)
+    return runtime_dir(environment) / "exports"
+
+
 def export_directory(environment: str, release_id: str) -> Path:
     """Return the directory for one release export.
 
     OPENFACTORS_API_EXPORT_DIR replaces the local runtime directory. The row
     and byte caps are unchanged.
     """
-    release = str(uuid.UUID(release_id))
-    configured = os.environ.get("OPENFACTORS_API_EXPORT_DIR", "").strip()
-    if configured:
-        if any(ord(character) < 32 for character in configured):
-            raise ValueError("The export directory is not a usable path.")
-        root = Path(configured)
-    else:
-        root = runtime_dir(environment) / "exports"
-    return root / release
+    return export_root(environment) / str(uuid.UUID(release_id))
 
 
 def sql_identifiers(names: tuple[str, ...]) -> str:
@@ -138,13 +147,19 @@ def read_sql(
     tuples_only: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run one read statement as of_api. SQL is stdin, not a shell command."""
-    return run_query(
-        load_database(environment),
-        sql,
-        variables=variables or {},
-        integers=integers or {},
-        tuples_only=tuples_only,
-    )
+    if not _SLOTS.acquire(blocking=False):
+        raise ApiReadError("The API is busy.")
+    try:
+        script = f"SET statement_timeout = '{API_STATEMENT_TIMEOUT}';\n{sql}"
+        return run_query(
+            load_database(environment),
+            script,
+            variables=variables or {},
+            integers=integers or {},
+            tuples_only=tuples_only,
+        )
+    finally:
+        _SLOTS.release()
 
 
 def run_query(
@@ -157,6 +172,7 @@ def run_query(
 ) -> subprocess.CompletedProcess[str]:
     command = _command(database, variables, integers, tuples_only=tuples_only)
     password_file = _write_pgpass(database)
+    process: subprocess.Popen[str] | None = None
     try:
         env = os.environ.copy()
         env.pop("PGPASSWORD", None)
@@ -168,17 +184,40 @@ def run_query(
             env.pop("PGSSLROOTCERT", None)
         else:
             env["PGSSLROOTCERT"] = str(database.sslrootcert)
-        return subprocess.run(
+        process = subprocess.Popen(
             command,
-            input=sql,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            capture_output=True,
-            check=False,
             env=env,
             shell=False,
         )
+        try:
+            stdout, stderr = process.communicate(
+                input=sql,
+                timeout=API_SUBPROCESS_DEADLINE_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            _reap(process)
+            raise ApiReadError("The API query timed out.") from None
+        code = 0 if process.returncode is None else process.returncode
+        return subprocess.CompletedProcess(command, code, stdout, stderr)
     finally:
+        if process is not None and process.poll() is None:
+            _reap(process)
         password_file.unlink(missing_ok=True)
+
+
+def _reap(process: subprocess.Popen[str]) -> None:
+    """Stop a psql process and wait until it is gone."""
+    if process.poll() is None:
+        process.kill()
+    try:
+        process.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
 
 
 def psql_executable() -> str:

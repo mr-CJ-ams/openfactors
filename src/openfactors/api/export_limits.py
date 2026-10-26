@@ -11,6 +11,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 
@@ -135,6 +137,48 @@ def commit_export(
         for path in (partial, final, manifest_partial, manifest_final):
             path.unlink(missing_ok=True)
         raise
+
+
+_UNFINISHED = re.compile(r"^\.[A-Za-z0-9][A-Za-z0-9._-]*\.partial$")
+
+
+def sweep_unfinished_exports(root: Path) -> None:
+    """Delete recognized partial files inside UUID export folders.
+
+    Completed exports, other names, and files outside those folders stay.
+    Symbolic links stay, including a link whose target is a partial file.
+    """
+    if not root.is_dir() or root.is_symlink():
+        return
+    root_resolved = root.resolve()
+    for child in root.iterdir():
+        if child.is_symlink() or not child.is_dir():
+            continue
+        try:
+            parsed = uuid.UUID(child.name)
+        except ValueError:
+            continue
+        if str(parsed) != child.name:
+            continue
+        child_resolved = child.resolve()
+        if not _within(child_resolved, root_resolved):
+            continue
+        for item in child.iterdir():
+            if item.is_symlink() or not item.is_file():
+                continue
+            if _UNFINISHED.fullmatch(item.name) is None:
+                continue
+            if not _within(item.resolve(), child_resolved):
+                continue
+            item.unlink()
+
+
+def _within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
 
 
 def _checkpoint(checkpoint: Callable[[str], None] | None, name: str) -> None:

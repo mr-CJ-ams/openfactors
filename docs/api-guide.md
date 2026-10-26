@@ -50,7 +50,7 @@ curl "http://127.0.0.1:8000/openapi.json"
 
 - One `location_id` per factor or export request. An unknown location is 404 with `That location is not available.`
 - `start_date` and `end_date` are inclusive ISO dates. `start_date` must be on or before `end_date`.
-- No date-span maximum is set. No request quota is set.
+- No date-span maximum is set. A loopback client is not rate limited. Any other client is limited to 60 requests per 60 seconds. That limit is provisional until staging measurements.
 - Factor `page` defaults to 1 and must be at least 1. `page_size` defaults to 100 and must be from 1 to 1000.
 - An export above 100,000 rows or 50,000,000 bytes is 422 `EXPORT_LIMIT`. The message says to split the date interval. No file bytes are returned.
 - `format` is `csv` or `parquet`.
