@@ -9,26 +9,31 @@ from decimal import Decimal
 
 import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
-from ops.local_stack import compose_base, dev_database_ready, load_secrets
+from ops.local_stack import ENVIRONMENTS, compose_base, load_secrets
 from ops.migrate import apply, psql
 from ops.promote import (
     PROMOTION_LOCK_KEY,
     active_release_id,
     promote_release,
-    restore_active_release,
     rollback_release,
 )
 from ops.releases import persist_manifest
+from tests.release_support import (
+    ENVIRONMENT,
+    cleanup_steps,
+    discard_test_releases,
+    ensure_isolated_database,
+    restore_previous_release,
+)
 from tests.test_release_manifest import _build, _row
 
 DATASET_ID = "daily_external_factors_ph"
 
 
 def test_pointer_switch_failure_and_rollback_keep_a_whole_release() -> None:
-    if not dev_database_ready():
-        pytest.skip("Docker is required to promote a release.")
-    apply("dev")
-    previous = active_release_id("dev")
+    ensure_isolated_database()
+    apply(ENVIRONMENT)
+    previous = active_release_id(ENVIRONMENT)
     _terminate_lock_holder()
     contract = load_json(CONTRACT_PATH)
     release_a = str(uuid.uuid4())
@@ -38,8 +43,8 @@ def test_pointer_switch_failure_and_rollback_keep_a_whole_release() -> None:
     created = [release_a, release_b, release_crash, release_rejected]
     try:
         first = _approved(contract, _row(), release_a)
-        persist_manifest("dev", first)
-        promote_release("dev", first, [_row()])
+        persist_manifest(ENVIRONMENT, first)
+        promote_release(ENVIRONMENT, first, [_row()])
         assert _active() == release_a
         assert _served_temperature() == Decimal("26.1")
         assert _stored_count(release_a) == "1"
@@ -47,21 +52,21 @@ def test_pointer_switch_failure_and_rollback_keep_a_whole_release() -> None:
         second_row = _row()
         second_row["temperature_mean_c"] = "18.4"
         second = _approved(contract, second_row, release_b)
-        persist_manifest("dev", second)
+        persist_manifest(ENVIRONMENT, second)
         with _held_promotion_lock(), pytest.raises(RuntimeError, match="lock timeout"):
-            promote_release("dev", second, [second_row], lock_timeout_s=2)
+            promote_release(ENVIRONMENT, second, [second_row], lock_timeout_s=2)
         assert _active() == release_a
         assert _stored_count(release_b) == "0"
         assert _served_temperature() == Decimal("26.1")
 
-        promote_release("dev", second, [second_row])
+        promote_release(ENVIRONMENT, second, [second_row])
         assert _active() == release_b
         assert _served_temperature() == Decimal("18.4")
         assert _stored_count(release_a) == "1"
         assert _stored_count(release_b) == "1"
         assert _view_count() == "1"
 
-        rollback_release("dev", release_a)
+        rollback_release(ENVIRONMENT, release_a)
         assert _active() == release_a
         assert _served_temperature() == Decimal("26.1")
         assert _stored_count(release_b) == "1"
@@ -71,11 +76,11 @@ def test_pointer_switch_failure_and_rollback_keep_a_whole_release() -> None:
         rejected_row["precipitation_mm"] = "-1"
         rejected = _build(contract, [rejected_row], release_id=release_rejected)
         assert rejected.status == "rejected"
-        persist_manifest("dev", rejected)
+        persist_manifest(ENVIRONMENT, rejected)
         with pytest.raises(ValueError, match="not promoted"):
-            promote_release("dev", rejected, [rejected_row])
+            promote_release(ENVIRONMENT, rejected, [rejected_row])
         denied_pointer = psql(
-            "dev",
+            ENVIRONMENT,
             "of_admin",
             "UPDATE publish.active_dataset_release "
             f"SET release_id = '{release_rejected}' WHERE dataset_id = '{DATASET_ID}';",
@@ -88,9 +93,9 @@ def test_pointer_switch_failure_and_rollback_keep_a_whole_release() -> None:
         crash_row = _row()
         crash_row["temperature_mean_c"] = "21.0"
         crashed = _approved(contract, crash_row, release_crash)
-        persist_manifest("dev", crashed)
+        persist_manifest(ENVIRONMENT, crashed)
         with pytest.raises(RuntimeError, match="injected promotion failure"):
-            promote_release("dev", crashed, [crash_row], abort_before_commit=True)
+            promote_release(ENVIRONMENT, crashed, [crash_row], abort_before_commit=True)
         assert _status(release_crash) == "approved"
         assert _stored_count(release_crash) == "0"
         assert _active() == release_a
@@ -105,13 +110,15 @@ def test_pointer_switch_failure_and_rollback_keep_a_whole_release() -> None:
             "UPDATE publish.dataset_releases SET status = 'approved', published_at = NULL "
             f"WHERE release_id = '{release_a}';",
         ):
-            denied = psql("dev", "of_admin", statement)
+            denied = psql(ENVIRONMENT, "of_admin", statement)
             assert denied.returncode != 0, statement
             assert "immutable" in denied.stderr
     finally:
-        _terminate_lock_holder()
-        _cleanup(created)
-        restore_active_release("dev", previous)
+        cleanup_steps(
+            _terminate_lock_holder,
+            lambda: _cleanup(created, ENVIRONMENT),
+            lambda: restore_previous_release(ENVIRONMENT, previous),
+        )
 
 
 def _approved(contract: dict, row: dict, release_id: str):
@@ -131,7 +138,7 @@ def _active() -> str:
 
 def _served_temperature() -> Decimal:
     served = psql(
-        "dev",
+        ENVIRONMENT,
         "of_api",
         "SELECT location_id, temperature_mean_c::text, dataset_version FROM publish.daily_factors;",
         tuples_only=True,
@@ -155,7 +162,7 @@ def _stored_count(release_id: str) -> str:
 
 def _view_count() -> str:
     counted = psql(
-        "dev",
+        ENVIRONMENT,
         "of_api",
         "SELECT count(*)::text FROM publish.daily_factors;",
         tuples_only=True,
@@ -171,33 +178,18 @@ def _status(release_id: str) -> str:
 
 
 def _admin(sql: str) -> list[str]:
-    completed = psql("dev", "of_admin", sql, tuples_only=True)
+    completed = psql(ENVIRONMENT, "of_admin", sql, tuples_only=True)
     assert completed.returncode == 0, completed.stderr
     return [line for line in completed.stdout.splitlines() if line]
 
 
-def _cleanup(release_ids: list[str]) -> None:
-    if not release_ids:
-        return
-    quoted = ", ".join(f"'{release_id}'::uuid" for release_id in release_ids)
-    completed = psql(
-        "dev",
-        "of_admin",
-        f"""
-        BEGIN;
-        ALTER TABLE publish.daily_external_factors_ph DISABLE TRIGGER published_rows_immutable;
-        DELETE FROM publish.daily_external_factors_ph WHERE release_id IN ({quoted});
-        DELETE FROM publish.active_dataset_release WHERE release_id IN ({quoted});
-        ALTER TABLE publish.daily_external_factors_ph ENABLE TRIGGER published_rows_immutable;
-        COMMIT;
-        """,
-    )
-    assert completed.returncode == 0, completed.stderr
+def _cleanup(release_ids: list[str], environment: str = "dev") -> None:
+    discard_test_releases(environment, release_ids)
 
 
 def _terminate_lock_holder() -> None:
     psql(
-        "dev",
+        ENVIRONMENT,
         "of_admin",
         """
         SELECT pg_terminate_backend(pid)
@@ -210,11 +202,11 @@ def _terminate_lock_holder() -> None:
 
 class _held_promotion_lock:
     def __enter__(self):
-        secrets = load_secrets("dev")
+        secrets = load_secrets(ENVIRONMENT)
         self._secret = secrets["POSTGRES_PASSWORD"]
-        database = "openfactors_dev"
+        database = str(ENVIRONMENTS[ENVIRONMENT]["database"])
         command = [
-            *compose_base("dev"),
+            *compose_base(ENVIRONMENT),
             "exec",
             "-T",
             "--env",

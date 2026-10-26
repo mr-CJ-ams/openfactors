@@ -11,14 +11,19 @@ from datetime import date
 from decimal import Decimal
 from http.server import ThreadingHTTPServer
 
-import pytest
 from contracts.calendar import date_parts
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
-from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
-from ops.promote import active_release_id, promote_release, restore_active_release
+from ops.promote import active_release_id, promote_release
 from ops.releases import persist_manifest
 from ops.withdraw import suspend_source
+from tests.release_support import (
+    ENVIRONMENT,
+    cleanup_steps,
+    discard_test_releases,
+    ensure_isolated_database,
+    restore_previous_release,
+)
 from tests.test_release_manifest import _build, _row
 
 from openfactors.api.catalog import catalog_server
@@ -109,10 +114,9 @@ def test_export_response_matches_the_pinned_rows() -> None:
 
 
 def test_live_csv_uses_the_pinned_release() -> None:
-    if not dev_database_ready():
-        pytest.skip("Docker is required to export a published release.")
-    apply("dev")
-    previous = active_release_id("dev")
+    ensure_isolated_database()
+    apply(ENVIRONMENT)
+    previous = active_release_id(ENVIRONMENT)
     prior = _source_status()
     older = str(uuid.uuid4())
     newer = str(uuid.uuid4())
@@ -136,7 +140,7 @@ def test_live_csv_uses_the_pinned_release() -> None:
         assert [row["temperature_mean_c"] for row in rows] == [Decimal("26.1"), Decimal("26.2")]
         assert rows[0]["holiday_name"] is None
         assert rows[0]["source_updated_at"] is None
-        suspend_source("dev", SOURCE_ID)
+        suspend_source(ENVIRONMENT, SOURCE_ID)
         hidden_status, _hidden_headers, hidden = _read(server, f"{QUERY}&release_id={older}")
         missing_status, _missing_headers, missing = _read(
             server, f"{QUERY}&release_id={uuid.uuid4()}"
@@ -144,11 +148,13 @@ def test_live_csv_uses_the_pinned_release() -> None:
         assert hidden_status == missing_status == 404
         assert hidden["error"]["message"] == missing["error"]["message"]
     finally:
-        _set_source_status(prior)
-        _cleanup([older, newer])
-        restore_active_release("dev", previous)
-        server.shutdown()
-        server.server_close()
+        cleanup_steps(
+            lambda: _set_source_status(prior),
+            lambda: discard_test_releases(ENVIRONMENT, [older, newer]),
+            lambda: restore_previous_release(ENVIRONMENT, previous),
+            server.shutdown,
+            server.server_close,
+        )
 
 
 def _sample(holiday_name: str | None, updated_at: str | None) -> dict:
@@ -191,8 +197,8 @@ def _publish(release_id: str, temperatures: tuple[str, str]) -> None:
         coverage_end="2018-01-02",
     )
     assert manifest.status == "approved", manifest.coverage.violations
-    persist_manifest("dev", manifest)
-    promote_release("dev", manifest, rows)
+    persist_manifest(ENVIRONMENT, manifest)
+    promote_release(ENVIRONMENT, manifest, rows)
 
 
 def _stored_row(day: str, temperature: str) -> dict:
@@ -206,13 +212,13 @@ def _stored_row(day: str, temperature: str) -> dict:
 def _live_release(release_id: str | None) -> dict | None:
     from openfactors.api.catalog import load_accessible_release
 
-    return load_accessible_release("dev", release_id)
+    return load_accessible_release(ENVIRONMENT, release_id)
 
 
 def _live_rows(filters: dict) -> list[dict]:
     from openfactors.api.factors import load_export_rows
 
-    return load_export_rows("dev", **filters)
+    return load_export_rows(ENVIRONMENT, **filters)
 
 
 def _read(server: ThreadingHTTPServer, path: str) -> tuple[int, dict[str, str], bytes | dict]:
@@ -240,7 +246,7 @@ def _set_source_status(status: str) -> None:
     if status not in ALLOWED_STATUS:
         raise AssertionError(status)
     completed = psql(
-        "dev",
+        ENVIRONMENT,
         "of_admin",
         "UPDATE control.source_registry "
         f"SET redistribution_status = '{status}', updated_at = now() "
@@ -250,23 +256,6 @@ def _set_source_status(status: str) -> None:
 
 
 def _admin(sql: str) -> list[str]:
-    completed = psql("dev", "of_admin", sql, tuples_only=True)
+    completed = psql(ENVIRONMENT, "of_admin", sql, tuples_only=True)
     assert completed.returncode == 0, completed.stderr
     return [line for line in completed.stdout.splitlines() if line]
-
-
-def _cleanup(release_ids: list[str]) -> None:
-    quoted = ", ".join(f"'{release_id}'::uuid" for release_id in release_ids)
-    completed = psql(
-        "dev",
-        "of_admin",
-        f"""
-        BEGIN;
-        ALTER TABLE publish.daily_external_factors_ph DISABLE TRIGGER published_rows_immutable;
-        DELETE FROM publish.daily_external_factors_ph WHERE release_id IN ({quoted});
-        DELETE FROM publish.active_dataset_release WHERE release_id IN ({quoted});
-        ALTER TABLE publish.daily_external_factors_ph ENABLE TRIGGER published_rows_immutable;
-        COMMIT;
-        """,
-    )
-    assert completed.returncode == 0, completed.stderr

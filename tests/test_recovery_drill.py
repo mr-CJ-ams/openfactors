@@ -8,8 +8,14 @@ from pathlib import Path
 import pytest
 from ops.local_stack import backup, dev_database_ready, restore_isolated
 from ops.migrate import apply, psql
-from ops.promote import active_release_id, promote_release, restore_active_release, rollback_release
+from ops.promote import active_release_id, promote_release, rollback_release
 from ops.releases import persist_manifest
+from tests.release_support import (
+    ENVIRONMENT,
+    cleanup_steps,
+    ensure_isolated_database,
+    restore_previous_release,
+)
 from tests.test_ingestion_runs import (
     KEEP,
     START,
@@ -191,28 +197,32 @@ def test_isolated_restore_and_release_rollback() -> None:
     assert evidence["measured_restore_seconds"] >= 0
     assert evidence["fact_count"] == _fact_count()
     before_facts = _fact_count()
-    previous = active_release_id("dev")
+    ensure_isolated_database()
+    apply(ENVIRONMENT)
+    previous = active_release_id(ENVIRONMENT)
     release_a = str(uuid.uuid4())
     release_b = str(uuid.uuid4())
     try:
         contract = _contract()
         first = _approved(contract, _row(), release_a)
-        persist_manifest("dev", first)
-        promote_release("dev", first, [_row()])
+        persist_manifest(ENVIRONMENT, first)
+        promote_release(ENVIRONMENT, first, [_row()])
         second_row = _row()
         second_row["temperature_mean_c"] = "18.4"
         second = _approved(contract, second_row, release_b)
-        persist_manifest("dev", second)
-        promote_release("dev", second, [second_row])
+        persist_manifest(ENVIRONMENT, second)
+        promote_release(ENVIRONMENT, second, [second_row])
         assert _active() == release_b
-        rollback_release("dev", release_a)
+        rollback_release(ENVIRONMENT, release_a)
         assert _active() == release_a
         assert _served_temperature() == Decimal("26.1")
         assert _stored_count(release_a) == "1"
         assert _stored_count(release_b) == "1"
     finally:
-        _cleanup([release_a, release_b])
-        restore_active_release("dev", previous)
+        cleanup_steps(
+            lambda: _cleanup([release_a, release_b], ENVIRONMENT),
+            lambda: restore_previous_release(ENVIRONMENT, previous),
+        )
     assert _fact_count() == before_facts
 
 

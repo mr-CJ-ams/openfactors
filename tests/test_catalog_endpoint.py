@@ -11,14 +11,19 @@ import uuid
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-import pytest
 import yaml
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
-from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
-from ops.promote import active_release_id, promote_release, restore_active_release
+from ops.promote import active_release_id, promote_release
 from ops.releases import persist_manifest
 from ops.withdraw import suspend_source
+from tests.release_support import (
+    ENVIRONMENT,
+    cleanup_steps,
+    discard_test_releases,
+    ensure_isolated_database,
+    restore_previous_release,
+)
 from tests.test_release_manifest import _build, _row
 
 from openfactors.api.catalog import CatalogUnavailable, catalog_server, handle_catalog
@@ -109,10 +114,9 @@ def test_catalog_failure_returns_503_without_the_query() -> None:
 
 
 def test_live_catalog_lists_only_the_active_published_release() -> None:
-    if not dev_database_ready():
-        pytest.skip("Docker is required to read the published catalog.")
-    apply("dev")
-    previous = active_release_id("dev")
+    ensure_isolated_database()
+    apply(ENVIRONMENT)
+    previous = active_release_id(ENVIRONMENT)
     prior = _source_status()
     release_id = str(uuid.uuid4())
     server = catalog_server(lambda: _live_rows())
@@ -123,8 +127,8 @@ def test_live_catalog_lists_only_the_active_published_release() -> None:
             _set_source_status("approved")
         row = _row()
         manifest = _build(load_json(CONTRACT_PATH), [row], release_id=release_id)
-        persist_manifest("dev", manifest)
-        promote_release("dev", manifest, [row])
+        persist_manifest(ENVIRONMENT, manifest)
+        promote_release(ENVIRONMENT, manifest, [row])
         status, _headers, body = _request(server, "/api/v1/datasets")
         assert status == 200
         listed = {item["active_release_id"] for item in body["datasets"]}
@@ -136,20 +140,20 @@ def test_live_catalog_lists_only_the_active_published_release() -> None:
         assert dataset["coverage"]["start"] == "2018-01-01"
         assert dataset["coverage"]["end"] == "2018-01-01"
         assert dataset["dataset_version"] == "1.0.0"
-        suspend_source("dev", SOURCE_ID)
+        suspend_source(ENVIRONMENT, SOURCE_ID)
         after_status, _after_headers, after = _request(server, "/api/v1/datasets")
         assert after_status == 200
         assert release_id not in {item["active_release_id"] for item in after["datasets"]}
     finally:
-        _set_source_status(prior)
-        _cleanup([release_id])
-        restore_active_release("dev", previous)
-        shutil.rmtree(
-            ROOT / "ops" / "local" / "runtime" / "dev" / "exports" / release_id,
-            ignore_errors=True,
+        export_root = ROOT / "ops" / "local" / "runtime" / ENVIRONMENT / "exports" / release_id
+        cleanup_steps(
+            lambda: _set_source_status(prior),
+            lambda: discard_test_releases(ENVIRONMENT, [release_id]),
+            lambda: restore_previous_release(ENVIRONMENT, previous),
+            lambda: shutil.rmtree(export_root, ignore_errors=True),
+            server.shutdown,
+            server.server_close,
         )
-        server.shutdown()
-        server.server_close()
 
 
 def _published_row() -> dict:
@@ -166,7 +170,7 @@ def _published_row() -> dict:
 def _live_rows() -> list[dict]:
     from openfactors.api.catalog import load_catalog_rows
 
-    return load_catalog_rows("dev")
+    return load_catalog_rows(ENVIRONMENT)
 
 
 def _request(
@@ -194,7 +198,7 @@ def _set_source_status(status: str) -> None:
     if status not in ALLOWED_STATUS:
         raise AssertionError(status)
     completed = psql(
-        "dev",
+        ENVIRONMENT,
         "of_admin",
         "UPDATE control.source_registry "
         f"SET redistribution_status = '{status}', updated_at = now() "
@@ -204,23 +208,6 @@ def _set_source_status(status: str) -> None:
 
 
 def _admin(sql: str) -> list[str]:
-    completed = psql("dev", "of_admin", sql, tuples_only=True)
+    completed = psql(ENVIRONMENT, "of_admin", sql, tuples_only=True)
     assert completed.returncode == 0, completed.stderr
     return [line for line in completed.stdout.splitlines() if line]
-
-
-def _cleanup(release_ids: list[str]) -> None:
-    quoted = ", ".join(f"'{release_id}'::uuid" for release_id in release_ids)
-    completed = psql(
-        "dev",
-        "of_admin",
-        f"""
-        BEGIN;
-        ALTER TABLE publish.daily_external_factors_ph DISABLE TRIGGER published_rows_immutable;
-        DELETE FROM publish.daily_external_factors_ph WHERE release_id IN ({quoted});
-        DELETE FROM publish.active_dataset_release WHERE release_id IN ({quoted});
-        ALTER TABLE publish.daily_external_factors_ph ENABLE TRIGGER published_rows_immutable;
-        COMMIT;
-        """,
-    )
-    assert completed.returncode == 0, completed.stderr

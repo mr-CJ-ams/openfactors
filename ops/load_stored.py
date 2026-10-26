@@ -10,7 +10,6 @@ import hashlib
 import json
 import os
 import subprocess
-import sys
 import uuid
 from dataclasses import replace
 from pathlib import Path
@@ -20,7 +19,7 @@ from contracts.check_dataset_contract import load_json
 from openfactors.ingestion.holidays import load_publication_calendar
 from openfactors.quality.gates import INTERNAL_COLUMNS, physical_type
 from openfactors.quality.manifest import build_manifest
-from ops.local_stack import dev_database_ready, load_secrets
+from ops.local_stack import dbt_executable, dev_database_ready, load_secrets
 from ops.migrate import apply, psql, sql_literal
 from ops.promote import active_release_id, promote_release, rollback_release
 from ops.releases import persist_manifest
@@ -447,7 +446,7 @@ def _run_dbt() -> subprocess.CompletedProcess[str]:
     env["OPENFACTORS_PGPORT"] = secrets["POSTGRES_PORT"]
     env["OPENFACTORS_PGDATABASE"] = secrets["POSTGRES_DB"]
     env["OPENFACTORS_PGPASSWORD"] = secrets["OF_TRANSFORM_PASSWORD"]
-    executable = Path(sys.executable).with_name("dbt.exe")
+    executable = dbt_executable()
     completed = subprocess.run(
         [
             str(executable),

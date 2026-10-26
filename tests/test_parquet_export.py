@@ -11,13 +11,18 @@ from http.server import ThreadingHTTPServer
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
-from ops.local_stack import dev_database_ready
 from ops.migrate import apply
-from ops.promote import active_release_id, restore_active_release
+from ops.promote import active_release_id
 from ops.withdraw import suspend_source
-from tests.test_csv_export import _cleanup, _publish, _set_source_status, _source_status
+from tests.release_support import (
+    ENVIRONMENT,
+    cleanup_steps,
+    discard_test_releases,
+    ensure_isolated_database,
+    restore_previous_release,
+)
+from tests.test_csv_export import _publish, _set_source_status, _source_status
 from tests.test_release_manifest import _row
 
 from openfactors.api.catalog import catalog_server
@@ -87,10 +92,9 @@ def test_parquet_response_matches_the_pinned_rows() -> None:
 
 
 def test_live_parquet_matches_the_pinned_release() -> None:
-    if not dev_database_ready():
-        pytest.skip("Docker is required to export a published release.")
-    apply("dev")
-    previous = active_release_id("dev")
+    ensure_isolated_database()
+    apply(ENVIRONMENT)
+    previous = active_release_id(ENVIRONMENT)
     prior = _source_status()
     older = str(uuid.uuid4())
     newer = str(uuid.uuid4())
@@ -117,17 +121,19 @@ def test_live_parquet_matches_the_pinned_release() -> None:
         assert rows[0]["precipitation_mm"] == Decimal("3.400")
         assert rows[0]["holiday_name"] is None
         assert rows[0]["source_updated_at"] is None
-        suspend_source("dev", SOURCE_ID)
+        suspend_source(ENVIRONMENT, SOURCE_ID)
         hidden = _read(server, f"{QUERY}&release_id={older}")
         missing = _read(server, f"{QUERY}&release_id={uuid.uuid4()}")
         assert hidden[0] == missing[0] == 404
         assert hidden[2]["error"]["message"] == missing[2]["error"]["message"]
     finally:
-        _set_source_status(prior)
-        _cleanup([older, newer])
-        restore_active_release("dev", previous)
-        server.shutdown()
-        server.server_close()
+        cleanup_steps(
+            lambda: _set_source_status(prior),
+            lambda: discard_test_releases(ENVIRONMENT, [older, newer]),
+            lambda: restore_previous_release(ENVIRONMENT, previous),
+            server.shutdown,
+            server.server_close,
+        )
 
 
 def _sample() -> dict:
@@ -155,13 +161,13 @@ def _release(release_id: str | None) -> dict | None:
 def _live_release(release_id: str | None) -> dict | None:
     from openfactors.api.catalog import load_accessible_release
 
-    return load_accessible_release("dev", release_id)
+    return load_accessible_release(ENVIRONMENT, release_id)
 
 
 def _live_rows(filters: dict) -> list[dict]:
     from openfactors.api.factors import load_export_rows
 
-    return load_export_rows("dev", **filters)
+    return load_export_rows(ENVIRONMENT, **filters)
 
 
 def _read(server: ThreadingHTTPServer, path: str) -> tuple[int, dict[str, str], bytes | dict]:

@@ -12,15 +12,20 @@ from decimal import Decimal
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-import pytest
 import yaml
 from contracts.calendar import date_parts
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
-from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
-from ops.promote import active_release_id, promote_release, restore_active_release
+from ops.promote import active_release_id, promote_release
 from ops.releases import persist_manifest
 from ops.withdraw import suspend_source
+from tests.release_support import (
+    ENVIRONMENT,
+    cleanup_steps,
+    discard_test_releases,
+    ensure_isolated_database,
+    restore_previous_release,
+)
 from tests.test_release_manifest import _build, _row
 
 from openfactors.api.catalog import CatalogUnavailable, catalog_server
@@ -172,11 +177,10 @@ def test_factor_failures_hide_the_database_error() -> None:
 
 
 def test_live_pin_stays_stable_when_a_newer_release_is_active() -> None:
-    if not dev_database_ready():
-        pytest.skip("Docker is required to page a published release.")
-    apply("dev")
-    previous = active_release_id("dev")
-    prior = _source_status()
+    ensure_isolated_database()
+    apply(ENVIRONMENT)
+    previous = active_release_id(ENVIRONMENT)
+    prior = _source_status(ENVIRONMENT)
     older = str(uuid.uuid4())
     newer = str(uuid.uuid4())
     server = catalog_server(
@@ -188,7 +192,7 @@ def test_live_pin_stays_stable_when_a_newer_release_is_active() -> None:
     thread.start()
     try:
         if prior != "approved":
-            _set_source_status("approved")
+            _set_source_status("approved", ENVIRONMENT)
         _publish(older, ("26.1", "26.2"))
         _publish(newer, ("18.4", "18.5"))
         current_status, current_headers, current = _request(server, f"{QUERY}&page_size=1")
@@ -215,7 +219,7 @@ def test_live_pin_stays_stable_when_a_newer_release_is_active() -> None:
         assert inclusive["data"][0]["date"] == "2018-01-01"
         assert beyond["data"] == []
         assert beyond["pagination"]["total"] == 0
-        suspend_source("dev", SOURCE_ID)
+        suspend_source(ENVIRONMENT, SOURCE_ID)
         hidden_status, _hidden_headers, hidden = _request(server, f"{QUERY}&release_id={older}")
         missing_status, _missing_headers, missing = _request(
             server, f"{QUERY}&release_id={uuid.uuid4()}"
@@ -224,11 +228,13 @@ def test_live_pin_stays_stable_when_a_newer_release_is_active() -> None:
         assert hidden["error"]["message"] == missing["error"]["message"]
         assert "withdrawn" not in hidden["error"]["message"].lower()
     finally:
-        _set_source_status(prior)
-        _cleanup([older, newer])
-        restore_active_release("dev", previous)
-        server.shutdown()
-        server.server_close()
+        cleanup_steps(
+            lambda: _set_source_status(prior, ENVIRONMENT),
+            lambda: discard_test_releases(ENVIRONMENT, [older, newer]),
+            lambda: restore_previous_release(ENVIRONMENT, previous),
+            server.shutdown,
+            server.server_close,
+        )
 
 
 def _remember(calls: list[str | None]):
@@ -309,8 +315,8 @@ def _publish(release_id: str, temperatures: tuple[str, str]) -> None:
         coverage_end="2018-01-02",
     )
     assert manifest.status == "approved", manifest.coverage.violations
-    persist_manifest("dev", manifest)
-    promote_release("dev", manifest, rows)
+    persist_manifest(ENVIRONMENT, manifest)
+    promote_release(ENVIRONMENT, manifest, rows)
 
 
 def _stored_row(day: str, temperature: str) -> dict:
@@ -324,13 +330,13 @@ def _stored_row(day: str, temperature: str) -> dict:
 def _live_release(release_id: str | None) -> dict | None:
     from openfactors.api.catalog import load_accessible_release
 
-    return load_accessible_release("dev", release_id)
+    return load_accessible_release(ENVIRONMENT, release_id)
 
 
 def _live_page(filters: dict) -> dict:
     from openfactors.api.factors import load_factor_page
 
-    return load_factor_page("dev", **filters)
+    return load_factor_page(ENVIRONMENT, **filters)
 
 
 def _temperature(row: dict) -> Decimal:
@@ -351,18 +357,19 @@ def _request(
         return error.code, dict(error.headers), payload
 
 
-def _source_status() -> str:
+def _source_status(environment: str = "dev") -> str:
     return _admin(
         "SELECT redistribution_status FROM control.source_registry "
-        f"WHERE source_id = '{SOURCE_ID}';"
+        f"WHERE source_id = '{SOURCE_ID}';",
+        environment,
     )[0]
 
 
-def _set_source_status(status: str) -> None:
+def _set_source_status(status: str, environment: str = "dev") -> None:
     if status not in ALLOWED_STATUS:
         raise AssertionError(status)
     completed = psql(
-        "dev",
+        environment,
         "of_admin",
         "UPDATE control.source_registry "
         f"SET redistribution_status = '{status}', updated_at = now() "
@@ -371,24 +378,7 @@ def _set_source_status(status: str) -> None:
     assert completed.returncode == 0, completed.stderr
 
 
-def _admin(sql: str) -> list[str]:
-    completed = psql("dev", "of_admin", sql, tuples_only=True)
+def _admin(sql: str, environment: str = "dev") -> list[str]:
+    completed = psql(environment, "of_admin", sql, tuples_only=True)
     assert completed.returncode == 0, completed.stderr
     return [line for line in completed.stdout.splitlines() if line]
-
-
-def _cleanup(release_ids: list[str]) -> None:
-    quoted = ", ".join(f"'{release_id}'::uuid" for release_id in release_ids)
-    completed = psql(
-        "dev",
-        "of_admin",
-        f"""
-        BEGIN;
-        ALTER TABLE publish.daily_external_factors_ph DISABLE TRIGGER published_rows_immutable;
-        DELETE FROM publish.daily_external_factors_ph WHERE release_id IN ({quoted});
-        DELETE FROM publish.active_dataset_release WHERE release_id IN ({quoted});
-        ALTER TABLE publish.daily_external_factors_ph ENABLE TRIGGER published_rows_immutable;
-        COMMIT;
-        """,
-    )
-    assert completed.returncode == 0, completed.stderr

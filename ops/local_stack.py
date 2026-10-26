@@ -127,6 +127,18 @@ def docker_executable() -> str:
     return "docker"
 
 
+def dbt_executable() -> Path:
+    """Return the dbt program installed beside this Python."""
+    name = "dbt.exe" if sys.platform == "win32" else "dbt"
+    path = Path(sys.executable).with_name(name)
+    if path.is_file():
+        return path
+    found = shutil.which("dbt")
+    if found:
+        return Path(found)
+    return path
+
+
 def docker_available() -> bool:
     try:
         result = subprocess.run(
@@ -182,8 +194,24 @@ def run_compose(
     )
 
 
+def _postgres_healthy(environment: str) -> bool:
+    if not docker_available():
+        return False
+    completed = subprocess.run(
+        [*compose_base(environment), "ps", "postgres", "--format", "{{.Health}}"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return completed.returncode == 0 and (completed.stdout or "").strip() == "healthy"
+
+
 def up(environment: str) -> None:
-    run_compose(environment, "up", "--detach", "--wait")
+    completed = run_compose(environment, "up", "--detach", "--wait", check=False)
+    if not _postgres_healthy(environment):
+        detail = (completed.stderr or completed.stdout or "").strip()
+        raise SystemExit(f"Postgres for {environment} is not healthy.\n{detail}")
     settings = require_environment(environment)
     print(
         f"{environment} is up. Postgres localhost:{settings['postgres_port']} "

@@ -5,14 +5,13 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from contracts.calendar import date_parts
-from ops.local_stack import dev_database_ready, load_secrets
+from ops.local_stack import dbt_executable, dev_database_ready, load_secrets
 from ops.migrate import apply, psql
 
 from openfactors.quality.coverage import COVERAGE_DENOMINATOR, COVERAGE_NUMERATOR, evaluate_coverage
@@ -50,7 +49,7 @@ def test_threshold_and_exception_fixtures() -> None:
 def test_current_spine_reports_coverage_and_publish_stays_empty() -> None:
     if not dev_database_ready():
         pytest.skip("Docker is required to measure the candidate coverage.")
-    if not Path(sys.executable).with_name("dbt.exe").is_file():
+    if not dbt_executable().is_file():
         pytest.skip("dbt is not installed in the project environment.")
     apply("dev")
     built = _run_dbt(_dbt_env())
@@ -208,7 +207,7 @@ def _dbt_env() -> dict[str, str]:
 
 
 def _run_dbt(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    executable = Path(sys.executable).with_name("dbt.exe")
+    executable = dbt_executable()
     completed = subprocess.run(
         [
             str(executable),

@@ -6,13 +6,12 @@ import hashlib
 import json
 import os
 import subprocess
-import sys
 import uuid
 from pathlib import Path
 
 import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
-from ops.local_stack import dev_database_ready, load_secrets
+from ops.local_stack import dbt_executable, dev_database_ready, load_secrets
 from ops.migrate import apply, psql
 from ops.releases import persist_manifest
 
@@ -107,7 +106,7 @@ def test_failed_gate_is_rejected_and_keeps_the_quality_link() -> None:
 def test_live_manifest_is_immutable_and_publish_stays_empty() -> None:
     if not dev_database_ready():
         pytest.skip("Docker is required to audit a release manifest.")
-    if not Path(sys.executable).with_name("dbt.exe").is_file():
+    if not dbt_executable().is_file():
         pytest.skip("dbt is not installed in the project environment.")
     apply("dev")
     built = _run_dbt(_dbt_env())
@@ -370,7 +369,7 @@ def _dbt_env() -> dict[str, str]:
 
 
 def _run_dbt(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    executable = Path(sys.executable).with_name("dbt.exe")
+    executable = dbt_executable()
     completed = subprocess.run(
         [
             str(executable),
