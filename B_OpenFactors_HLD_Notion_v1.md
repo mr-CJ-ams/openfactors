@@ -298,7 +298,7 @@ A design with unresolved external dependencies cannot honestly claim zero loopho
 | D-04 Anonymous API vs key | Anonymous read-only, no accounts. Rate-limit numbers unset. | Abuse limits still need a later ADR | ADR-003 |
 | D-05 Hosting/budget | USD 0 per month. Local Docker only. Founder / Product Lead operates failures. | Blocks any hosted production deploy | ADR-003 |
 | D-06 Redistribution permissions | Open-Meteo ERA5, CC BY 4.0, non-commercial free API. Holidays transcribed from proclamations. | Commercial use of the free weather API is forbidden | Source registry |
-| D-07 Scheduler | Local scheduled or manual command. Airflow is not installed. | Hosted scheduling is a later ADR | ADR-003 |
+| D-07 Scheduler | Local scheduled or manual command. Learning Airflow is ADR-007 and is not the production scheduler. | Hosted scheduling is a later ADR | ADR-003 |
 | D-08 Revision/version policy | ADR-004. New release_id for content. Keep all published releases at USD 0. Raw files kept until the source is withdrawn. No offsite copy. | Hosted expiry and any public cache still need a revised ADR | `docs/decisions/ADR-004-retention-and-withdrawal.md` |
 | A-09 Backup RPO/RTO | Set after hosting choice and restore drill | Blocks operational readiness signoff | Platform; tested restore targets |
 | A-10 Data retention and privacy | Source-specific retention + log retention | Blocks privacy/governance signoff | Product + Security; policies |
@@ -344,6 +344,9 @@ A design with unresolved external dependencies cannot honestly claim zero loopho
 - **ADR-001:** Pilot locations — `docs/decisions/ADR-001-pilot-locations.md`
 - **ADR-003:** Budget, anonymous access, and local scheduler — `docs/decisions/ADR-003-budget-and-ownership.md`
 - **ADR-004:** Retention, withdrawal, and revisions — `docs/decisions/ADR-004-retention-and-withdrawal.md`
+- **ADR-006:** Zero-cost public hosting, proposed and not approved — `docs/decisions/ADR-006-zero-cost-public-hosting.md`
+- **ADR-007:** Local learning Airflow. It is not the production scheduler — `docs/decisions/ADR-007-learning-airflow.md`
+- **ADR-008:** Public beta query limits. The 366-day span is reconsidered and not enforced — `docs/decisions/ADR-008-public-beta-query-limits.md`
 - **Source registry:** `docs/decisions/source-registry.md`
 - **LLD / Physical Data Model:** DDL, indices, schema YAML, precise field contract
 - **OpenAPI 3.x contract:** exact JSON payloads and error schemas

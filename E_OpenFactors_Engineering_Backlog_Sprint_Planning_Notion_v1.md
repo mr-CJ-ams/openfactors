@@ -657,13 +657,13 @@ HTTP contract: valid empty results return 200; malformed syntax 400; unknown/wit
 | Decision | Status | Blocking impact |
 |---|---|---|
 | Approved PH pilot locations, stable identifiers and coordinates | Working baseline 2026-10-24. ADR-001 and `contracts/fixtures/pilot_locations.json`. Product owner confirmed the five cities on 2026-10-25. | Source fixtures and location validation |
-| Historical coverage and maximum query date range | Start `2018-01-01` confirmed for Open-Meteo ERA5 on 2026-10-24. Raw responses through 2026-10-25 are stored. Maximum query span still open. | Backfill/API bounds |
+| Historical coverage and maximum query date range | Start `2018-01-01` confirmed for Open-Meteo ERA5 on 2026-10-24. Raw responses through 2026-10-25 are stored. ADR-008 reconsiders a 366-day span. It is not approved and not enforced. | Backfill/API bounds |
 | Authoritative national holiday source and revision policy | Working baseline. Official Gazette proclamations. Years 2018 through 2026 are transcribed. Incomplete years are omitted from the release. | Holiday correctness |
 | Weather/holiday licensing, attribution and raw storage rights | Working baseline 2026-10-24. Source registry. Free weather API is non-commercial only. | **Hard public-release blocker** for commercial use and for any source not in the registry |
 | Raw/release retention, withdrawal, cache purge and revision policy | Working baseline 2026-10-24. ADR-004. Retention column reconciled in ADR-005. No offsite backup. No public cache. | Old release access and legal compliance |
 | Deployment cost cap, owners, environments and load assumptions | Working baseline. USD 0, local Docker, Founder / Product Lead. ADR-003. | Production launch |
 | `source_updated_at` conditional nullability and exact revision precedence | Resolved in ADR-005. Nullable upstream update time. Open-Meteo ERA5 publishes null. Winner is that timestamp, else retrieved_at, else artifact_id. | LLD/OpenAPI schema freeze |
-| Export limits, rate limits and date-span policy | 100,000 rows and 50 MB are the shared provisional caps. Date span and rate numbers remain unset. | Contract finalization |
+| Export limits, rate limits and date-span policy | 100,000 rows and 50 MB remain the shared provisional caps. ADR-008 reconsiders a 366-day span. The 60-request rate stays a proposal. Neither is enforced, and neither is a benchmark. | Contract finalization |
 
 Every change to column type/order/nullability, source semantics, API request/response/error shape, or release retention requires ADR → PRD/HLD/LLD/OpenAPI update → backlog re-estimation → tests.
 

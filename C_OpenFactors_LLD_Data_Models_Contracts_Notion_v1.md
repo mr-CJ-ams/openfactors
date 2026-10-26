@@ -556,7 +556,7 @@ These inherit HLD §18. **No production/public redistribution until blockers are
 | D-04 | Anonymous access/key | API abuse controls | Anonymous read-only in ADR-003. Numeric rate limits still open. |
 | D-05 | Hosting and cost cap | Partitioning, retention, availability | USD 0 and local Docker only, ADR-003. |
 | D-06 | Weather and holiday redistribution | **Hard public release blocker** | Working baseline in `docs/decisions/source-registry.md`. Non-commercial only. |
-| D-07 | Scheduler choice | Checkpoint/orchestration implementation | Local command in ADR-003. No Airflow. |
+| D-07 | Scheduler choice | Checkpoint/orchestration implementation | Local command in ADR-003. Learning Airflow is ADR-007 and is not the production scheduler. |
 | D-08 | Content release retention | Reproducibility promise | Working baseline in ADR-004. `retention_mode = until_source_withdrawn` is now in the source-registry DDL. |
 | A-09 | Backup RPO/RTO | Disaster recovery | No offsite copy at USD 0, stated in ADR-004. Hosted restore targets remain unset. |
 | A-10 | Raw/log retention/privacy | Storage policy and compliance | Raw-file mode is in ADR-004. Log retention and privacy review remain open. |

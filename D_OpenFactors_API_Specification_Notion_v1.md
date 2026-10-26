@@ -212,9 +212,9 @@ Error codes are stable machine-readable identifiers; error messages are human-re
 
 | Decision | Current position | Must resolve before |
 |---|---|---|
-| ADR-API-01 | Max permitted date span not yet approved | Public launch |
+| ADR-API-01 | Max permitted date span not yet approved. ADR-008 reconsiders a 366-day span and does not enforce it. | Public launch |
 | ADR-API-02 | Export 100k rows / 50MB provisional; benchmark | Public launch |
-| ADR-API-03 | IP rate limit and bandwidth quotas TBD | Public launch |
+| ADR-API-03 | IP rate limit and bandwidth quotas TBD. ADR-008 proposes 60 requests per minute per client IP, not a bandwidth quota, and does not enforce it. | Public launch |
 | ADR-API-04 | Pilot locations are the five ids in ADR-001 | Seeded release uses those ids |
 | ADR-API-05 | Sources approved for a non-commercial MVP in the source registry | Any public release still needs the registry to stay current |
 | ADR-API-06 | Retention and withdrawal are ADR-004 | Reproducibility on this computer only |

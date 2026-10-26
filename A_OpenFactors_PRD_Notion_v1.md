@@ -266,7 +266,7 @@ Become a trustworthy, developer-friendly source of contextual external factors f
 | D-04 | Anonymous vs API-key access? | Anonymous read-only, no accounts | Working baseline 2026-10-24. ADR-003. Rate limits still unset. |
 | D-05 | Public hosting budget? | USD 0 per month, local Docker only | Working baseline 2026-10-24. ADR-003. |
 | D-06 | Which raw data can be redistributed? | Open-Meteo ERA5 under CC BY 4.0 for a non-commercial product; transcribed Official Gazette holidays | Working baseline 2026-10-24. Source registry. |
-| D-07 | Which orchestrator at launch? | Local scheduled or manual command. No Airflow. | Working baseline 2026-10-24. ADR-003. |
+| D-07 | Which orchestrator at launch? | Local scheduled or manual command. Learning Airflow is not the production scheduler. | Working baseline 2026-10-24. ADR-003. Learning track ADR-007. |
 | D-08 | How are revisions represented? | New `release_id` for content changes. Keep every published release while the cap is USD 0. Raw files stay until the source is withdrawn. | Working baseline 2026-10-24. ADR-004. |
 
 ## 18. Related engineering artifacts

@@ -29,7 +29,7 @@ Anonymous read-only access. No accounts and no API keys for the public MVP. Rate
 
 ## D-07 scheduler
 
-The MVP scheduler is a local scheduled command or a manual command with the same arguments. Airflow is not installed. Add it only if a later ADR shows this command cannot meet the daily run.
+The MVP scheduler is a local scheduled command or a manual command with the same arguments. Airflow is not that scheduler. ADR-007 adds a separate local learning project that runs the same daily command. It is not installed in the dev, test, or staging projects, and it is not a production migration.
 
 ## Acceptance
 
