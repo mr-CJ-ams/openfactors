@@ -7,12 +7,11 @@ import json
 import os
 import socket
 import subprocess
-import sys
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from ops.local_stack import ENVIRONMENTS, docker_available, load_secrets, up
+from ops.local_stack import ENVIRONMENTS, dbt_executable, docker_available, load_secrets, up
 from ops.migrate import apply, psql
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -183,14 +182,7 @@ def _ensure_isolated_database() -> None:
         pytest.skip("Docker is required to select revisions.")
     if _database_ready():
         return
-    if os.environ.get("GITHUB_ACTIONS") == "true":
-        pytest.skip("The isolated test database is not running.")
-    try:
-        up(ENVIRONMENT)
-    except subprocess.CalledProcessError:
-        # Compose --wait reports one-shot cert and bucket tasks after Postgres is ready.
-        if not _database_ready():
-            raise
+    up(ENVIRONMENT)
     if not _database_ready():
         pytest.fail("The isolated test database did not start.")
 
@@ -206,7 +198,7 @@ def _dbt_env() -> dict[str, str]:
 
 
 def _run_dbt(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    executable = Path(sys.executable).with_name("dbt.exe")
+    executable = dbt_executable()
     completed = subprocess.run(
         [
             str(executable),
@@ -310,7 +302,7 @@ def test_revision_fixture_rejects_a_publication_calendar() -> None:
 
 
 def test_one_weather_revision_and_one_holiday_broadcast() -> None:
-    if not Path(sys.executable).with_name("dbt.exe").is_file():
+    if not dbt_executable().is_file():
         pytest.skip("dbt is not installed in the project environment.")
     _ensure_isolated_database()
     cases = _cases()

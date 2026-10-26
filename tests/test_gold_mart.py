@@ -6,13 +6,12 @@ import csv
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 import yaml
 from contracts.check_dataset_contract import field_names, load_json
-from ops.local_stack import dev_database_ready, load_secrets
+from ops.local_stack import dbt_executable, dev_database_ready, load_secrets
 from ops.migrate import apply, psql
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -130,7 +129,7 @@ def test_location_source_map_matches_the_pilot_cities() -> None:
 def test_candidate_schema_snapshot() -> None:
     if not dev_database_ready():
         pytest.skip("Docker is required to read the gold mart schema.")
-    if not Path(sys.executable).with_name("dbt.exe").is_file():
+    if not dbt_executable().is_file():
         pytest.skip("dbt is not installed in the project environment.")
     apply("dev")
     built = _run_dbt(_dbt_env())
@@ -168,7 +167,7 @@ def _dbt_env() -> dict[str, str]:
 
 
 def _run_dbt(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    executable = Path(sys.executable).with_name("dbt.exe")
+    executable = dbt_executable()
     completed = subprocess.run(
         [
             str(executable),

@@ -9,6 +9,7 @@ jobs:
   ci:
     name: ci
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,5 +29,15 @@ jobs:
         run: python -m openfactors.api.openapi
         env:
           PYTHONPATH: src
+      # dev and test are empty databases created on this runner.
+      # Passwords are generated under ops/local/runtime and are not uploaded.
+      # The stored historical load is not copied here.
+      # The live Open-Meteo probe remains the only permitted skip.
+      - name: Start isolated databases
+        run: |
+          python -m ops.local_stack up dev
+          python -m ops.local_stack up test
       - name: Tests
-        run: pytest
+        run: pytest -rs
+        env:
+          OPENFACTORS_REQUIRE_DATABASE: "1"

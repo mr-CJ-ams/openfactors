@@ -1,14 +1,35 @@
+import sys
 from pathlib import Path
 
 from ops.local_stack import (
     COMPOSE_FILE,
     ENVIRONMENTS,
+    dbt_executable,
     dev_database_ready,
     ensure_secrets,
     runtime_dir,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_dbt_executable_matches_this_platform() -> None:
+    path = dbt_executable()
+    assert path.is_file()
+    if sys.platform == "win32":
+        assert path.name == "dbt.exe"
+    else:
+        assert path.name == "dbt"
+
+
+def test_ci_starts_isolated_databases_without_uploading_secrets() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "python -m ops.local_stack up dev" in workflow
+    assert "python -m ops.local_stack up test" in workflow
+    assert "timeout-minutes: 45" in workflow
+    assert 'OPENFACTORS_REQUIRE_DATABASE: "1"' in workflow
+    assert "upload-artifact" not in workflow
+    assert "secrets.env" not in workflow
 
 
 def test_environments_are_local_only() -> None:
