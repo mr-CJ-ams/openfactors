@@ -16,4 +16,4 @@ These limits protect one API process. They are provisional until staging measure
 
 A date-span maximum is still not set.
 
-Temporary PostgreSQL password files left by a killed process are a separate follow-up. This change does not scan the system temporary directory.
+API password files live in a private directory, mode 0700 on Unix and owned by the API process user. That process holds an exclusive lock before startup removes recognized `openfactors-api-*.pgpass` files, so another process cannot delete a live password file. The system temporary directory is not scanned. Symbolic links are not followed.
