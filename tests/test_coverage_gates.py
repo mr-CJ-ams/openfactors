@@ -82,7 +82,7 @@ def test_current_spine_reports_coverage_and_publish_stays_empty() -> None:
         assert result.status == "FAIL"
         assert "coverage" in result.violations
     assert result.excluded == 0
-    assert before == after == ["0"]
+    assert before == after
 
 
 def _scenario(

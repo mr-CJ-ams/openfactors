@@ -11,7 +11,13 @@ import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
 from ops.local_stack import compose_base, dev_database_ready, load_secrets
 from ops.migrate import apply, psql
-from ops.promote import PROMOTION_LOCK_KEY, promote_release, rollback_release
+from ops.promote import (
+    PROMOTION_LOCK_KEY,
+    active_release_id,
+    promote_release,
+    restore_active_release,
+    rollback_release,
+)
 from ops.releases import persist_manifest
 from tests.test_release_manifest import _build, _row
 
@@ -22,6 +28,7 @@ def test_pointer_switch_failure_and_rollback_keep_a_whole_release() -> None:
     if not dev_database_ready():
         pytest.skip("Docker is required to promote a release.")
     apply("dev")
+    previous = active_release_id("dev")
     _terminate_lock_holder()
     contract = load_json(CONTRACT_PATH)
     release_a = str(uuid.uuid4())
@@ -104,6 +111,7 @@ def test_pointer_switch_failure_and_rollback_keep_a_whole_release() -> None:
     finally:
         _terminate_lock_holder()
         _cleanup(created)
+        restore_active_release("dev", previous)
 
 
 def _approved(contract: dict, row: dict, release_id: str):

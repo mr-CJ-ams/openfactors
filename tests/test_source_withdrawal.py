@@ -9,7 +9,7 @@ import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
 from ops.local_stack import dev_database_ready
 from ops.migrate import apply, psql
-from ops.promote import promote_release
+from ops.promote import active_release_id, promote_release, restore_active_release
 from ops.releases import persist_manifest
 from ops.withdraw import export_dir, resolve_release, suspend_source
 from tests.test_release_manifest import _build, _row
@@ -23,6 +23,7 @@ def test_suspended_source_withdraws_releases_and_purges_exports() -> None:
     if not dev_database_ready():
         pytest.skip("Docker is required for the takedown drill.")
     apply("dev")
+    previous = active_release_id("dev")
     prior = _source_status()
     assert prior in ALLOWED_STATUS
     release_id = str(uuid.uuid4())
@@ -81,6 +82,7 @@ def test_suspended_source_withdraws_releases_and_purges_exports() -> None:
     finally:
         _set_source_status(prior)
         _cleanup([release_id, blocked_id])
+        restore_active_release("dev", previous)
         shutil.rmtree(export_dir("dev", release_id), ignore_errors=True)
         shutil.rmtree(export_dir("dev", keeper_id), ignore_errors=True)
 

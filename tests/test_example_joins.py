@@ -12,12 +12,13 @@ from examples.join_factors import (
     SAMPLE_FACTORS,
     SAMPLE_RELEASE_ID,
     join_outcomes,
+    main,
     render_sql,
     run_join,
 )
 from ops.local_stack import dev_database_ready
 from ops.migrate import apply
-from ops.promote import promote_release
+from ops.promote import active_release_id, promote_release, restore_active_release
 from ops.releases import persist_manifest
 from tests.test_factor_query import _set_source_status, _source_status
 from tests.test_release_manifest import _row
@@ -63,10 +64,35 @@ def test_join_rejects_a_bad_pin_and_another_release() -> None:
     assert "__RELEASE_ID__" not in rendered
 
 
+def test_example_command_refuses_arguments_and_a_stopped_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(SystemExit, match="no arguments"):
+        main(["dev"])
+    monkeypatch.setattr("ops.local_stack.dev_database_ready", lambda: False)
+    with pytest.raises(SystemExit, match="not running"):
+        main([])
+
+
+def test_example_command_joins_the_active_local_release(capsys: pytest.CaptureFixture[str]) -> None:
+    if not dev_database_ready():
+        pytest.skip("Docker is required to run the example SQL.")
+    assert main([]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].startswith("2018-01-01 ph-manila orders=4 ")
+    assert lines[0].endswith("is_public_holiday=true")
+    assert Decimal(lines[0].split("temperature_c=")[1].split()[0]) == Decimal("26.1")
+    assert lines[1].startswith("2018-01-02 ph-manila orders=5 ")
+    assert lines[1].endswith("is_public_holiday=false")
+    assert lines[2].startswith("Release ")
+    assert lines[2].endswith("Sample orders are not a measured result.")
+
+
 def test_sql_join_runs_on_the_pinned_release() -> None:
     if not dev_database_ready():
         pytest.skip("Docker is required to run the example SQL.")
     apply("dev")
+    previous = active_release_id("dev")
     prior = _source_status()
     release_id = str(uuid.uuid4())
     try:
@@ -87,5 +113,6 @@ def test_sql_join_runs_on_the_pinned_release() -> None:
         assert row["is_public_holiday"] is False
     finally:
         _cleanup([release_id])
+        restore_active_release("dev", previous)
         if prior != "approved":
             _set_source_status(prior)

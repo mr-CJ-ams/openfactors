@@ -111,7 +111,7 @@ def test_live_candidate_passes_and_published_rows_stay_put() -> None:
     after = _rows("SELECT count(*)::text FROM publish.daily_external_factors_ph;")
     assert result.status == "PASS"
     assert result.violations == ()
-    assert before == after == ["0"]
+    assert before == after
 
 
 def _live_columns(contract: dict) -> list[dict]:

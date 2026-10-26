@@ -15,6 +15,7 @@ import pytest
 from contracts.check_dataset_contract import CONTRACT_PATH, field_names, load_json
 from ops.local_stack import dev_database_ready
 from ops.migrate import apply
+from ops.promote import active_release_id, restore_active_release
 from ops.withdraw import suspend_source
 from tests.test_csv_export import _cleanup, _publish, _set_source_status, _source_status
 from tests.test_release_manifest import _row
@@ -89,6 +90,7 @@ def test_live_parquet_matches_the_pinned_release() -> None:
     if not dev_database_ready():
         pytest.skip("Docker is required to export a published release.")
     apply("dev")
+    previous = active_release_id("dev")
     prior = _source_status()
     older = str(uuid.uuid4())
     newer = str(uuid.uuid4())
@@ -123,6 +125,7 @@ def test_live_parquet_matches_the_pinned_release() -> None:
     finally:
         _set_source_status(prior)
         _cleanup([older, newer])
+        restore_active_release("dev", previous)
         server.shutdown()
         server.server_close()
 

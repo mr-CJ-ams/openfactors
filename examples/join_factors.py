@@ -8,6 +8,7 @@ caused the orders.
 from __future__ import annotations
 
 import json
+import sys
 import uuid
 from pathlib import Path
 
@@ -104,6 +105,33 @@ def run_join(environment: str, release_id: str) -> list[dict]:
     return rows
 
 
+def main(argv: list[str] | None = None) -> int:
+    """Join the sample orders to the active local release."""
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args:
+        raise SystemExit("The example join takes no arguments.")
+    from ops.local_stack import dev_database_ready
+
+    if not dev_database_ready():
+        raise SystemExit(
+            "The local dev database is not running. Start it, then run this command again."
+        )
+    from ops.promote import active_release_id
+
+    release_id = active_release_id("dev")
+    if release_id is None:
+        raise SystemExit("No local release is published.")
+    for row in run_join("dev", release_id):
+        print(
+            f"{row['date']} {row['location_id']} orders={row['orders']} "
+            f"temperature_c={row['temperature_mean_c']} "
+            f"precipitation_mm={row['precipitation_mm']} "
+            f"is_public_holiday={str(row['is_public_holiday']).lower()}"
+        )
+    print(f"Release {release_id}. Sample orders are not a measured result.")
+    return 0
+
+
 def _pin(release_id: str) -> str:
     try:
         return str(uuid.UUID(release_id))
@@ -119,3 +147,7 @@ def _json_line(text: str) -> list:
             if isinstance(payload, list):
                 return payload
     raise RuntimeError("The example SQL did not run.")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -34,6 +35,7 @@ _COLUMN_KEYS = (
     "examples",
 )
 _HEX = set("0123456789abcdefABCDEF")
+_HOST = "127.0.0.1"
 
 
 class CatalogUnavailable(Exception):
@@ -272,12 +274,15 @@ def load_catalog_rows(environment: str) -> list[dict]:
     return payload
 
 
-def serve_catalog(environment: str, host: str = "127.0.0.1", port: int = 8000) -> None:
+def open_catalog(environment: str, host: str = _HOST, port: int = 8000) -> ThreadingHTTPServer:
+    """Bind the catalog to this computer. Any other address is refused."""
+    if host != _HOST:
+        raise ValueError("The catalog listens on 127.0.0.1.")
     from ops.withdraw import export_dir
 
     from openfactors.api.factors import load_export_rows, load_factor_page
 
-    server = catalog_server(
+    return catalog_server(
         lambda: load_catalog_rows(environment),
         host,
         port,
@@ -286,7 +291,26 @@ def serve_catalog(environment: str, host: str = "127.0.0.1", port: int = 8000) -
         load_export=lambda **filters: load_export_rows(environment, **filters),
         artifact_dir=lambda release_id: export_dir(environment, release_id),
     )
-    server.serve_forever()
+
+
+def serve_catalog(environment: str, host: str = _HOST, port: int = 8000) -> None:
+    open_catalog(environment, host, port).serve_forever()
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Listen on 127.0.0.1 for the local published release."""
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args:
+        raise SystemExit("The local catalog listens on 127.0.0.1 and takes no arguments.")
+    from ops.local_stack import dev_database_ready
+
+    if not dev_database_ready():
+        raise SystemExit(
+            "The local dev database is not running. Start it, then run this command again."
+        )
+    print("http://127.0.0.1:8000", flush=True)
+    serve_catalog("dev")
+    return 0
 
 
 def catalog_server(
@@ -458,3 +482,7 @@ def _bad_escape(query: str) -> bool:
 
 def _error(code: str, message: str, details: dict | None = None) -> dict:
     return api_error(code, message, details)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
