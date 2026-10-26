@@ -12,10 +12,11 @@ TLS modes:
   OPENFACTORS_API_PGSSLROOTCERT, a trusted CA file, and the host name must
   match that certificate.
 
-The password is written to a temporary client password file and passed with
+The password is written to a file in a private directory and passed with
 PGPASSFILE. It is not placed in the psql argument list, and that file is
-removed when the command finishes. Request values are psql variables, not
-shell text.
+removed when the command finishes. One API process locks that directory before
+startup removes recognized leftover password files. The system temporary
+directory is not used. Request values are psql variables, not shell text.
 """
 
 from __future__ import annotations
@@ -23,12 +24,18 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import threading
 import uuid
 from pathlib import Path
+
+if os.name == "posix":
+    import fcntl
+else:
+    import msvcrt
 
 from ops.local_stack import load_secrets, require_environment, runtime_dir
 
@@ -411,10 +418,171 @@ def _conn_value(value: str) -> str:
     return "'" + escaped + "'"
 
 
+_PASSWORD_FILE = re.compile(r"^openfactors-api-[A-Za-z0-9_]+\.pgpass$")
+_LOCK_NAME = ".openfactors-api.lock"
+_held_locks: dict[Path, int] = {}
+_lock_guard = threading.Lock()
+
+
+def password_directory() -> Path:
+    """Return the private directory for API password files. Mode 0700 on Unix."""
+    path = _password_directory_path()
+    if path.exists() and path.is_symlink():
+        raise ApiReadError("The API password directory cannot be a link.")
+    try:
+        path.mkdir(parents=True, mode=0o700, exist_ok=True)
+    except OSError as exc:
+        raise ApiReadError("The API password directory is not private to this process.") from exc
+    if path.is_symlink() or not path.is_dir(follow_symlinks=False):
+        raise ApiReadError("The API password directory is not a directory.")
+    try:
+        os.chmod(path, 0o700)
+    except OSError as exc:
+        raise ApiReadError("The API password directory is not private to this process.") from exc
+    _require_private(path)
+    _acquire_directory_lock(path)
+    return path
+
+
+def prepare_password_directory() -> Path:
+    """Lock the password directory, then remove recognized leftovers."""
+    directory = password_directory()
+    sweep_password_files(directory)
+    return directory
+
+
+def sweep_password_files(directory: Path) -> None:
+    """Delete recognized password files inside this owned directory only."""
+    if directory.is_symlink() or not directory.is_dir(follow_symlinks=False):
+        return
+    root = directory.resolve()
+    if root == Path(tempfile.gettempdir()).resolve():
+        raise ApiReadError("The API password directory cannot be the system temporary directory.")
+    if not _process_owns(root):
+        raise ApiReadError("The API password directory is not owned by this process.")
+    for item in directory.iterdir():
+        if item.is_symlink() or not item.is_file(follow_symlinks=False):
+            continue
+        if _PASSWORD_FILE.fullmatch(item.name) is None:
+            continue
+        try:
+            resolved = item.resolve(strict=True)
+        except OSError:
+            continue
+        if not _path_within(resolved, root):
+            continue
+        item.unlink(missing_ok=True)
+
+
+def _password_directory_path() -> Path:
+    configured = os.environ.get("OPENFACTORS_API_PGPASS_DIR", "").strip()
+    if configured:
+        if any(ord(character) < 32 for character in configured):
+            raise ApiReadError("The API password directory is not a usable path.")
+        path = Path(configured)
+    else:
+        path = Path(__file__).resolve().parents[1] / "ops" / "local" / "runtime" / "api-pgpass"
+    if path.resolve() == Path(tempfile.gettempdir()).resolve():
+        raise ApiReadError("The API password directory cannot be the system temporary directory.")
+    return path
+
+
+def _path_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _require_private(path: Path) -> None:
+    """Reject a directory this process does not own in mode 0700."""
+    if os.name != "posix":
+        return
+    info = path.lstat()
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise ApiReadError("The API password directory is not a directory.")
+    if info.st_uid != os.geteuid() or (info.st_mode & 0o777) != 0o700:
+        raise ApiReadError("The API password directory is not private to this process.")
+
+
+def _process_owns(root: Path) -> bool:
+    with _lock_guard:
+        return root in _held_locks
+
+
+def _acquire_directory_lock(directory: Path) -> None:
+    """Hold an exclusive lock until this process exits."""
+    root = directory.resolve()
+    with _lock_guard:
+        if root in _held_locks:
+            return
+        fd = _open_directory(directory) if os.name == "posix" else _open_lock_file(directory)
+        try:
+            _lock_exclusive(fd)
+        except Exception:
+            os.close(fd)
+            raise
+        _held_locks[root] = fd
+
+
+def _open_directory(directory: Path) -> int:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        return os.open(directory, flags)
+    except OSError as exc:
+        raise ApiReadError("The API password directory cannot be a link.") from exc
+
+
+def _open_lock_file(directory: Path) -> int:
+    lock_path = directory / _LOCK_NAME
+    if lock_path.is_symlink():
+        raise ApiReadError("The API password directory lock cannot be a link.")
+    flags = os.O_CREAT | os.O_RDWR
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+    try:
+        fd = os.open(lock_path, flags, 0o600)
+    except OSError as exc:
+        if lock_path.is_symlink():
+            raise ApiReadError("The API password directory lock cannot be a link.") from exc
+        raise ApiReadError("The API password directory is not private to this process.") from exc
+    try:
+        if hasattr(os, "fchmod"):
+            os.fchmod(fd, 0o600)
+        else:
+            os.chmod(lock_path, 0o600)
+    except OSError as exc:
+        os.close(fd)
+        raise ApiReadError("The API password directory is not private to this process.") from exc
+    return fd
+
+
+def _lock_exclusive(fd: int) -> None:
+    try:
+        if os.name == "posix":
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        os.lseek(fd, 0, os.SEEK_SET)
+        if os.fstat(fd).st_size < 1:
+            os.write(fd, b"\0")
+            os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+    except OSError as exc:
+        raise ApiReadError("The API password directory is already in use.") from exc
+
+
 def _write_pgpass(database: ApiDatabase) -> Path:
     handle = tempfile.NamedTemporaryFile(
         prefix="openfactors-api-",
         suffix=".pgpass",
+        dir=password_directory(),
         delete=False,
     )
     path = Path(handle.name)

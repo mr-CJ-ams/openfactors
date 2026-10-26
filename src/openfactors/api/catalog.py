@@ -12,7 +12,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from ops.api_read import ApiReadError, bind_address, export_directory, export_root, read_sql
+from ops.api_read import (
+    ApiReadError,
+    bind_address,
+    export_directory,
+    export_root,
+    prepare_password_directory,
+    read_sql,
+)
 
 from openfactors.api.errors import Limiter, api_error, limit_response
 from openfactors.api.export_limits import sweep_unfinished_exports
@@ -301,6 +308,10 @@ def open_catalog(
         trusted_proxies()
     except ClientAddressError:
         raise SystemExit("OPENFACTORS_API_TRUSTED_PROXIES must list IP addresses.") from None
+    try:
+        prepare_password_directory()
+    except ApiReadError as exc:
+        raise SystemExit(str(exc)) from exc
     sweep_unfinished_exports(export_root(environment))
     bind_host, bind_port = bind_address(host, port)
 
