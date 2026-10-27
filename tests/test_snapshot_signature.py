@@ -222,6 +222,7 @@ def test_an_unusable_signing_key_hides_key_material(tmp_path: Path) -> None:
     manifest = _manifest(tmp_path, "{}\n")
     decoy = tmp_path / "not-a-key"
     decoy.write_text("not-a-private-key\n", encoding="utf-8")
+    os.chmod(decoy, 0o600)
     with pytest.raises(SnapshotError, match="could not be used") as caught:
         sign_manifest(manifest, decoy)
     message = str(caught.value)
@@ -235,6 +236,7 @@ def test_a_failed_sign_can_be_retried(tmp_path: Path) -> None:
     manifest = _manifest(tmp_path, "{}\n")
     decoy = tmp_path / "not-a-key"
     decoy.write_text("not-a-private-key\n", encoding="utf-8")
+    os.chmod(decoy, 0o600)
     with pytest.raises(SnapshotError, match="could not be used"):
         sign_manifest(manifest, decoy)
     assert not signature_path_for(manifest).exists()
@@ -257,7 +259,8 @@ def test_a_failed_publish_removes_the_partial(
     def fail(_source: object, _target: object) -> None:
         raise OSError("disk")
 
-    monkeypatch.setattr("ops.publish_snapshot.os.rename", fail)
+    publication = "link" if os.name == "posix" else "rename"
+    monkeypatch.setattr(f"ops.publish_snapshot.os.{publication}", fail)
     payload = b"-----BEGIN SSH SIGNATURE-----\n-----END SSH SIGNATURE-----\n"
     with pytest.raises(SnapshotError, match="could not be written"):
         _publish_new_signature(destination, payload)
