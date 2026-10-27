@@ -14,6 +14,7 @@ import pytest
 from ops.api_read import (
     ApiDatabase,
     ApiReadError,
+    _password_directory_path,
     password_directory,
     prepare_password_directory,
     run_query,
@@ -120,6 +121,15 @@ def test_startup_keeps_unrelated_files_and_links(
             assert target.read_text(encoding="utf-8") == "keep"
     finally:
         system_temp.unlink(missing_ok=True)
+
+
+def test_an_unset_password_directory_stays_the_runtime_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENFACTORS_API_PGPASS_DIR", raising=False)
+    path = _password_directory_path()
+    assert path.parts[-4:] == ("ops", "local", "runtime", "api-pgpass")
+    assert path.resolve() != Path(tempfile.gettempdir()).resolve()
 
 
 def test_password_directory_is_private_and_is_not_the_system_temp(

@@ -1,7 +1,7 @@
-"""Create a selective snapshot and restore it into an isolated candidate.
+"""Create a selective snapshot, restore a candidate, and cut it over.
 
-This command does not rename databases, close the API, or switch a live
-serving database. Public Beta v0.1 stays no-go.
+Promotion renames openfactors_candidate to openfactors_serving and keeps the
+previous generation. It does not deploy a host. Public Beta v0.1 stays no-go.
 """
 
 from __future__ import annotations
@@ -24,6 +24,40 @@ from ops.migrate import sql_literal
 
 DATASET_ID = "daily_external_factors_ph"
 CANDIDATE_DATABASE = "openfactors_candidate"
+SERVING_DATABASE = "openfactors_serving"
+PREVIOUS_DATABASE = "openfactors_previous"
+EXPIRED_DATABASE = "openfactors_expired"
+CUTOVER_DATABASES = (
+    CANDIDATE_DATABASE,
+    SERVING_DATABASE,
+    PREVIOUS_DATABASE,
+    EXPIRED_DATABASE,
+)
+CUTOVER_CLUSTERS = frozenset({"test", "staging"})
+_DEMOTED_MARK = "openfactors-demoted"
+_ALLOWED_AFTER = frozenset(
+    {
+        f"COMMENT ON DATABASE {CANDIDATE_DATABASE} IS {sql_literal(_DEMOTED_MARK)};",
+        f"COMMENT ON DATABASE {SERVING_DATABASE} IS NULL;",
+    }
+)
+_LOST_CONNECTION = (
+    "connection to server was lost",
+    "server closed the connection unexpectedly",
+    "could not receive data from server",
+    "could not send data to server",
+    "ssl connection has been closed unexpectedly",
+)
+_RENAME_EDGES = frozenset(
+    {
+        (CANDIDATE_DATABASE, SERVING_DATABASE),
+        (SERVING_DATABASE, PREVIOUS_DATABASE),
+        (PREVIOUS_DATABASE, EXPIRED_DATABASE),
+        (SERVING_DATABASE, CANDIDATE_DATABASE),
+        (PREVIOUS_DATABASE, SERVING_DATABASE),
+        (EXPIRED_DATABASE, PREVIOUS_DATABASE),
+    }
+)
 SOURCE_DATABASES = frozenset({"openfactors_dev", "openfactors_test", "openfactors_staging"})
 PROTECTED_DATABASES = frozenset(
     {
@@ -161,6 +195,102 @@ def abort_candidate(environment: str) -> None:
         drop_database(environment, CANDIDATE_DATABASE)
 
 
+def promote_candidate(
+    environment: str,
+    confirm_release: str,
+    *,
+    abort_after_rename: bool = False,
+) -> dict[str, object]:
+    """Rename a validated candidate into openfactors_serving.
+
+    The confirmation must be the candidate release id. An existing serving
+    database is preserved as openfactors_previous. This does not drop a
+    previous or expired generation.
+    """
+    release_id = _confirm_release(confirm_release)
+    _assert_cutover_cluster(environment)
+    assert_cluster_roles(environment, REQUIRED_ROLES)
+    catalog = _cutover_catalog(environment)
+    if catalog[CANDIDATE_DATABASE] is None:
+        return _finish_promoted_serving(environment, release_id, catalog)
+    _refuse_demoted_candidate(environment)
+    plan = _promotion_plan(catalog)
+    evidence = _revalidate_database(environment, CANDIDATE_DATABASE, release_id)
+    if catalog[SERVING_DATABASE] is not None:
+        if catalog[SERVING_DATABASE] == "open":
+            _set_connections(environment, SERVING_DATABASE, allow=False)
+        _terminate_database(environment, SERVING_DATABASE)
+    _rename_transaction(environment, plan)
+    try:
+        if abort_after_rename:
+            raise SnapshotError("Post-cutover validation failed.")
+        _set_connections(environment, SERVING_DATABASE, allow=True)
+        promoted = _revalidate_database(environment, SERVING_DATABASE, release_id)
+        after = _cutover_catalog(environment)
+        if after[SERVING_DATABASE] != "open":
+            raise SnapshotError("The promoted serving database is not accepting connections.")
+        if after[PREVIOUS_DATABASE] not in {None, "closed"}:
+            raise SnapshotError("The previous serving database is accepting connections.")
+        if promoted["content_sha256_hex"] != evidence["content_sha256_hex"]:
+            raise SnapshotError("The promoted content hash does not match the candidate.")
+    except Exception as exc:
+        _undo_promotion(environment, plan, exc)
+        raise
+    return _evidence(SERVING_DATABASE, promoted)
+
+
+def rollback_serving(
+    environment: str,
+    confirm_release: str,
+    *,
+    abort_after_rename: bool = False,
+) -> dict[str, object]:
+    """Restore openfactors_previous to openfactors_serving.
+
+    The confirmation must be the previous generation's release id. The current
+    serving generation is preserved as openfactors_candidate. Expired generations
+    are left in place.
+    """
+    release_id = _confirm_release(confirm_release)
+    _assert_cutover_cluster(environment)
+    assert_cluster_roles(environment, REQUIRED_ROLES)
+    catalog = _cutover_catalog(environment)
+    if catalog[PREVIOUS_DATABASE] is None:
+        return _finish_restored_serving(environment, release_id, catalog)
+    if catalog[SERVING_DATABASE] is None or catalog[CANDIDATE_DATABASE] is not None:
+        raise SnapshotError("The cutover databases are in an unexpected state.")
+    if catalog[PREVIOUS_DATABASE] == "open":
+        _set_connections(environment, PREVIOUS_DATABASE, allow=False)
+    _revalidate_previous(environment, release_id)
+    if catalog[SERVING_DATABASE] == "open":
+        _set_connections(environment, SERVING_DATABASE, allow=False)
+    _terminate_database(environment, SERVING_DATABASE)
+    plan = [
+        (SERVING_DATABASE, CANDIDATE_DATABASE),
+        (PREVIOUS_DATABASE, SERVING_DATABASE),
+    ]
+    _rename_transaction(
+        environment,
+        plan,
+        after=(f"COMMENT ON DATABASE {CANDIDATE_DATABASE} IS {sql_literal(_DEMOTED_MARK)};",),
+    )
+    try:
+        if abort_after_rename:
+            raise SnapshotError("Post-cutover validation failed.")
+        _set_connections(environment, SERVING_DATABASE, allow=True)
+        _set_connections(environment, CANDIDATE_DATABASE, allow=True)
+        restored = _revalidate_database(environment, SERVING_DATABASE, release_id)
+        after = _cutover_catalog(environment)
+        if after[SERVING_DATABASE] != "open" or after[CANDIDATE_DATABASE] != "open":
+            raise SnapshotError("Rollback left a generation closed.")
+        if after[PREVIOUS_DATABASE] is not None:
+            raise SnapshotError("Rollback left a previous generation in place.")
+    except Exception as exc:
+        _undo_rollback(environment, plan, exc)
+        raise
+    return _evidence(SERVING_DATABASE, restored)
+
+
 def validate_candidate(environment: str, manifest: dict[str, object]) -> dict[str, object]:
     """Check the candidate copy. This does not write the source database."""
     _assert_candidate_target(CANDIDATE_DATABASE)
@@ -256,6 +386,8 @@ def assert_cluster_roles(environment: str, required: tuple[str, ...]) -> None:
 
 def drop_database(environment: str, database: str) -> None:
     _assert_candidate_target(database)
+    if _database_comment(environment, database) == _DEMOTED_MARK:
+        raise SnapshotError("The candidate is a preserved serving generation and is not dropped.")
     _admin(
         environment,
         "postgres",
@@ -618,13 +750,307 @@ def _run(
     )
 
 
+def _promotion_plan(catalog: dict[str, str | None]) -> list[tuple[str, str]]:
+    if catalog[CANDIDATE_DATABASE] is None:
+        raise SnapshotError("The candidate database is missing.")
+    if catalog[EXPIRED_DATABASE] is not None:
+        raise SnapshotError("An expired generation is still present.")
+    if catalog[SERVING_DATABASE] is None and catalog[PREVIOUS_DATABASE] is not None:
+        raise SnapshotError("The cutover databases are in an unexpected state.")
+    if catalog[CANDIDATE_DATABASE] != "open":
+        raise SnapshotError("The candidate database is not accepting connections.")
+    if catalog[PREVIOUS_DATABASE] not in {None, "closed"}:
+        raise SnapshotError("The previous serving database is accepting connections.")
+    plan: list[tuple[str, str]] = []
+    if catalog[PREVIOUS_DATABASE] is not None:
+        plan.append((PREVIOUS_DATABASE, EXPIRED_DATABASE))
+    if catalog[SERVING_DATABASE] is not None:
+        plan.append((SERVING_DATABASE, PREVIOUS_DATABASE))
+    plan.append((CANDIDATE_DATABASE, SERVING_DATABASE))
+    return plan
+
+
+def _confirm_release(value: str) -> str:
+    try:
+        return str(uuid.UUID(str(value)))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise SnapshotError("The confirmation is not a release id.") from exc
+
+
+def _assert_cutover_cluster(environment: str) -> None:
+    if environment not in CUTOVER_CLUSTERS:
+        raise SnapshotError("Cutover runs only on the test or staging cluster.")
+    source = _source_database(environment)
+    if source not in {"openfactors_test", "openfactors_staging"} or source in CUTOVER_DATABASES:
+        raise SnapshotError("Cutover refuses this source database.")
+
+
+def _assert_cutover_name(database: str) -> None:
+    if database not in CUTOVER_DATABASES:
+        raise SnapshotError("Cutover refuses this database name.")
+
+
+def _cutover_catalog(environment: str) -> dict[str, str | None]:
+    listed = ", ".join(sql_literal(name) for name in CUTOVER_DATABASES)
+    text = _admin(
+        environment,
+        "postgres",
+        "SELECT datname || '|' || CASE WHEN datallowconn THEN 'open' ELSE 'closed' END "
+        f"FROM pg_database WHERE datname IN ({listed}) ORDER BY 1;",
+    )
+    found: dict[str, str | None] = {name: None for name in CUTOVER_DATABASES}
+    for line in text.splitlines():
+        if "|" not in line:
+            continue
+        name, state = line.strip().split("|", 1)
+        if name in found:
+            found[name] = state
+    return found
+
+
+def _revalidate_database(
+    environment: str,
+    database: str,
+    release_id: str,
+) -> dict[str, object]:
+    if database not in {CANDIDATE_DATABASE, SERVING_DATABASE, PREVIOUS_DATABASE}:
+        raise SnapshotError("Validation can read only a candidate or serving generation.")
+    current = _text(environment, database, "SELECT current_database();")
+    if current != database:
+        raise SnapshotError("Validation did not read the intended database.")
+    identity = _published_identity(environment, database)
+    if identity["release_id"] != release_id:
+        raise SnapshotError("The confirmation does not match the database release.")
+    _require_objects(environment, database)
+    _require_absent(environment, database)
+    _require_owners(environment, database)
+    _require_api_boundary(environment, database, str(identity["release_id"]))
+    return identity
+
+
+def _revalidate_previous(environment: str, release_id: str) -> None:
+    _set_connections(environment, PREVIOUS_DATABASE, allow=True)
+    try:
+        _revalidate_database(environment, PREVIOUS_DATABASE, release_id)
+    except Exception:
+        _set_connections(environment, PREVIOUS_DATABASE, allow=False)
+        raise
+    _set_connections(environment, PREVIOUS_DATABASE, allow=False)
+
+
+def _finish_promoted_serving(
+    environment: str,
+    release_id: str,
+    catalog: dict[str, str | None],
+) -> dict[str, object]:
+    if catalog[SERVING_DATABASE] is None or catalog[CANDIDATE_DATABASE] is not None:
+        raise SnapshotError("The candidate database is missing.")
+    if catalog[PREVIOUS_DATABASE] not in {None, "closed"}:
+        raise SnapshotError("The previous serving database is accepting connections.")
+    opened = False
+    if catalog[SERVING_DATABASE] != "open":
+        _set_connections(environment, SERVING_DATABASE, allow=True)
+        opened = True
+    try:
+        identity = _revalidate_database(environment, SERVING_DATABASE, release_id)
+    except Exception:
+        if opened:
+            _set_connections(environment, SERVING_DATABASE, allow=False)
+        raise
+    return _evidence(SERVING_DATABASE, identity)
+
+
+def _finish_restored_serving(
+    environment: str,
+    release_id: str,
+    catalog: dict[str, str | None],
+) -> dict[str, object]:
+    if (
+        catalog[SERVING_DATABASE] is None
+        or catalog[CANDIDATE_DATABASE] is None
+        or catalog[PREVIOUS_DATABASE] is not None
+    ):
+        raise SnapshotError("There is no previous serving database to restore.")
+    if _database_comment(environment, CANDIDATE_DATABASE) != _DEMOTED_MARK:
+        raise SnapshotError("There is no previous serving database to restore.")
+    opened_serving = catalog[SERVING_DATABASE] != "open"
+    opened_candidate = catalog[CANDIDATE_DATABASE] != "open"
+    if opened_serving:
+        _set_connections(environment, SERVING_DATABASE, allow=True)
+    if opened_candidate:
+        _set_connections(environment, CANDIDATE_DATABASE, allow=True)
+    try:
+        identity = _revalidate_database(environment, SERVING_DATABASE, release_id)
+        preserved = _published_identity(environment, CANDIDATE_DATABASE)
+        if preserved["release_id"] == identity["release_id"]:
+            raise SnapshotError("Rollback did not preserve a distinct serving generation.")
+    except Exception:
+        if opened_serving:
+            _set_connections(environment, SERVING_DATABASE, allow=False)
+        if opened_candidate:
+            _set_connections(environment, CANDIDATE_DATABASE, allow=False)
+        raise
+    return _evidence(SERVING_DATABASE, identity)
+
+
+def _set_connections(environment: str, database: str, *, allow: bool) -> None:
+    _assert_cutover_name(database)
+    flag = "true" if allow else "false"
+    _admin(
+        environment,
+        "postgres",
+        f"ALTER DATABASE {database} WITH ALLOW_CONNECTIONS {flag};",
+    )
+
+
+def _terminate_database(environment: str, database: str) -> None:
+    _assert_cutover_name(database)
+    for _attempt in range(3):
+        _admin(
+            environment,
+            "postgres",
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            f"WHERE datname = {sql_literal(database)} AND pid <> pg_backend_pid();",
+        )
+        count = _admin(
+            environment,
+            "postgres",
+            "SELECT count(*)::text FROM pg_stat_activity "
+            f"WHERE datname = {sql_literal(database)} AND pid <> pg_backend_pid();",
+        ).strip()
+        if count == "0":
+            return
+    raise SnapshotError("A session is still using the database.")
+
+
+def _rename_transaction(
+    environment: str,
+    plan: list[tuple[str, str]],
+    *,
+    after: tuple[str, ...] = (),
+    fail_before_commit: bool = False,
+) -> None:
+    """Rename in one transaction. fail_before_commit is a test seam, not a command."""
+    if not plan:
+        raise SnapshotError("The cutover databases are in an unexpected state.")
+    for statement in after:
+        if statement not in _ALLOWED_AFTER:
+            raise SnapshotError("Cutover refuses this database statement.")
+    statements = ["SET lock_timeout = '3s';", "BEGIN;"]
+    for source, destination in plan:
+        if (source, destination) not in _RENAME_EDGES:
+            raise SnapshotError("Cutover refuses this database name.")
+        statements.append(f"ALTER DATABASE {source} RENAME TO {destination};")
+    statements.extend(after)
+    if fail_before_commit:
+        statements.append("SELECT 1/0;")
+    statements.append("COMMIT;")
+    _admin(environment, "postgres", "\n".join(statements))
+
+
+def _reverse_rename(
+    environment: str,
+    plan: list[tuple[str, str]],
+    *,
+    after: tuple[str, ...] = (),
+    fail_before_commit: bool = False,
+) -> None:
+    for _source, destination in plan:
+        _terminate_database(environment, destination)
+    reverse = [(destination, source) for source, destination in reversed(plan)]
+    _rename_transaction(
+        environment,
+        reverse,
+        after=after,
+        fail_before_commit=fail_before_commit,
+    )
+
+
+def _undo_promotion(
+    environment: str,
+    plan: list[tuple[str, str]],
+    exc: Exception,
+    *,
+    fail_before_commit: bool = False,
+) -> None:
+    """Compensate a rename that has already committed. This is a new transaction."""
+    try:
+        _reverse_rename(environment, plan, fail_before_commit=fail_before_commit)
+        if any(source == SERVING_DATABASE for source, _destination in plan):
+            _set_connections(environment, SERVING_DATABASE, allow=True)
+        else:
+            _set_connections(environment, CANDIDATE_DATABASE, allow=True)
+    except Exception as undo_error:
+        raise SnapshotError(_compensation_message(undo_error)) from exc
+
+
+def _undo_rollback(environment: str, plan: list[tuple[str, str]], exc: Exception) -> None:
+    """Compensate a rollback rename that has already committed."""
+    try:
+        _reverse_rename(
+            environment,
+            plan,
+            after=(f"COMMENT ON DATABASE {SERVING_DATABASE} IS NULL;",),
+        )
+        _set_connections(environment, SERVING_DATABASE, allow=True)
+        _set_connections(environment, PREVIOUS_DATABASE, allow=False)
+    except Exception as undo_error:
+        raise SnapshotError(_compensation_message(undo_error)) from exc
+
+
+def _compensation_message(undo_error: Exception) -> str:
+    """Separate a rolled-back statement error from an unconfirmed commit."""
+    detail = str(undo_error).strip()
+    lowered = detail.lower()
+    lost = any(phrase in lowered for phrase in _LOST_CONNECTION)
+    if lost or "error:" not in lowered:
+        return (
+            "The compensating transaction commit was not confirmed. "
+            "Inspect pg_database before retrying. " + detail
+        )
+    return (
+        "The compensating transaction failed before commit and was rolled back. "
+        "Inspect pg_database before retrying. " + detail
+    )
+
+
+def _database_comment(environment: str, database: str) -> str:
+    _assert_cutover_name(database)
+    return _admin(
+        environment,
+        "postgres",
+        "SELECT COALESCE(shobj_description(oid, 'pg_database'), '') "
+        f"FROM pg_database WHERE datname = {sql_literal(database)};",
+    ).strip()
+
+
+def _refuse_demoted_candidate(environment: str) -> None:
+    comment = _database_comment(environment, CANDIDATE_DATABASE)
+    if comment == _DEMOTED_MARK:
+        raise SnapshotError(
+            "The candidate is a preserved serving generation, not a new publication."
+        )
+    if comment:
+        raise SnapshotError("The candidate database has an unexpected catalog comment.")
+
+
+def _evidence(database: str, identity: dict[str, object]) -> dict[str, object]:
+    return {
+        "database": database,
+        "release_id": identity["release_id"],
+        "dataset_version": identity["dataset_version"],
+        "row_count": identity["row_count"],
+        "content_sha256_hex": identity["content_sha256_hex"],
+    }
+
+
 def _default_output(environment: str) -> Path:
     return runtime_dir(environment) / "publications"
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Create a selective snapshot or restore it into the candidate database."
+        description="Create a selective snapshot, restore a candidate, or cut it over."
     )
     sub = parser.add_subparsers(dest="command", required=True)
     create_cmd = sub.add_parser("create")
@@ -635,6 +1061,12 @@ def main(argv: list[str] | None = None) -> None:
     restore_cmd.add_argument("dump", type=Path)
     abort_cmd = sub.add_parser("abort-candidate")
     abort_cmd.add_argument("environment")
+    promote_cmd = sub.add_parser("promote-candidate")
+    promote_cmd.add_argument("environment")
+    promote_cmd.add_argument("--confirm-release", required=True)
+    rollback_cmd = sub.add_parser("rollback-serving")
+    rollback_cmd.add_argument("environment")
+    rollback_cmd.add_argument("--confirm-release", required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "create":
@@ -645,6 +1077,10 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "abort-candidate":
             abort_candidate(args.environment)
             print("Candidate database removed.")
+        elif args.command == "promote-candidate":
+            print(json.dumps(promote_candidate(args.environment, args.confirm_release), indent=2))
+        elif args.command == "rollback-serving":
+            print(json.dumps(rollback_serving(args.environment, args.confirm_release), indent=2))
     except SnapshotError as exc:
         raise SystemExit(str(exc)) from exc
 
