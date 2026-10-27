@@ -32,7 +32,7 @@ If `openfactors_previous` already exists and `openfactors_expired` does not, tha
 
 A confirmation that does not match the candidate release id does not rename anything. The candidate is checked again before the rename: release id, row count, recomputed content hash, schema version, required objects, excluded objects, owners, and `of_api` permissions.
 
-A candidate left by `rollback-serving` is a preserved serving generation. The same transaction that renames the databases writes the catalog comment `openfactors-demoted` on `openfactors_candidate`, and that comment commits with those renames. A failure before that `COMMIT` leaves the old names and does not leave the comment. `promote-candidate` and `abort-candidate` both refuse a database that has the comment. A new `restore-candidate` creates a database and has no such comment. The preserved generation stays until a later explicit cleanup. It is not overwritten.
+A candidate left by `rollback-serving` is a preserved serving generation. The same transaction that renames the databases writes the catalog comment `openfactors-demoted` on `openfactors_candidate`, and that comment commits with those renames. A failure before that `COMMIT` leaves the old names and does not leave the comment. `promote-candidate` and `abort-candidate` both refuse a database that has the comment. A new `restore-candidate` creates a database and has no such comment. The preserved generation stays until the separate cleanup command in `snapshot-cleanup.md`. It is not overwritten by promotion or rollback.
 
 ## Downtime
 
@@ -72,6 +72,6 @@ Rollback does not need `openfactors_expired`. It renames the current serving dat
 
 The dump SHA-256 used to build the candidate detects accidental corruption. It does not authenticate the publisher. Authenticated transfer or signature verification remains a later deployment gate.
 
-`openfactors_previous` is the on-cluster copy used for rollback. It is not an independent offsite backup. This change does not delete `openfactors_previous` or `openfactors_expired`. Removing an expired generation is a later explicit operation. Until that exists, a further promotion waits.
+`openfactors_previous` is the on-cluster copy used for rollback. It is not an independent offsite backup. Promotion and rollback do not delete `openfactors_previous` or `openfactors_expired`. While an expired generation remains, a further promotion waits. The separate cleanup command in `snapshot-cleanup.md` can remove a confirmed expired generation. It refuses a demoted candidate while `openfactors_previous` is absent, because that candidate is the only on-cluster copy of its release. It does not remove `openfactors_previous`. A later recovery or backup-preservation workflow has to clear that candidate before another restore can use the name.
 
-The development cluster is not a cutover target. Public Beta v0.1 remains no-go.
+The development cluster is not a cutover target. Promotion, rollback, restore, and abort share the advisory lock described in `snapshot-cleanup.md`. A manual administrator session does not take that lock, so SQL entered by hand can still change the catalog. Public Beta v0.1 remains no-go.

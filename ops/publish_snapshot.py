@@ -1,18 +1,21 @@
 """Create a selective snapshot, restore a candidate, and cut it over.
 
 Promotion renames openfactors_candidate to openfactors_serving and keeps the
-previous generation. It does not deploy a host. Public Beta v0.1 stays no-go.
+previous generation. Cleanup of an expired or demoted generation is a separate
+command. This does not deploy a host. Public Beta v0.1 stays no-go.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextvars
 import hashlib
 import hmac
 import json
 import os
 import subprocess
 import sys
+import threading
 import uuid
 from pathlib import Path
 
@@ -34,6 +37,11 @@ CUTOVER_DATABASES = (
     EXPIRED_DATABASE,
 )
 CUTOVER_CLUSTERS = frozenset({"test", "staging"})
+CLEANUP_TARGETS = frozenset({CANDIDATE_DATABASE, EXPIRED_DATABASE})
+_DROP_SQL = {
+    EXPIRED_DATABASE: "DROP DATABASE openfactors_expired;",
+    CANDIDATE_DATABASE: "DROP DATABASE openfactors_candidate;",
+}
 _DEMOTED_MARK = "openfactors-demoted"
 _ALLOWED_AFTER = frozenset(
     {
@@ -41,6 +49,8 @@ _ALLOWED_AFTER = frozenset(
         f"COMMENT ON DATABASE {SERVING_DATABASE} IS NULL;",
     }
 )
+_GENERATION_LOCK_CLASS = 481516234
+_GENERATION_LOCK_OBJECT = 20261027
 _LOST_CONNECTION = (
     "connection to server was lost",
     "server closed the connection unexpectedly",
@@ -171,18 +181,22 @@ def restore_candidate(environment: str, dump_path: Path) -> dict[str, object]:
     container_dump = _container_dump()
     created = False
     try:
-        _create_candidate(environment)
-        created = True
-        _copy_to_container(environment, dump_path, container_dump)
-        restored = _pg_restore(environment, container_dump)
-        if restored.returncode != 0:
-            detail = (restored.stderr or restored.stdout or "").strip()
-            raise SnapshotError(detail or "The candidate restore failed.")
-        evidence = validate_candidate(environment, manifest)
-    except Exception:
-        if created:
-            drop_database(environment, CANDIDATE_DATABASE)
-        raise
+        with _generation_lock(environment):
+            if _database_exists(environment, CANDIDATE_DATABASE):
+                raise SnapshotError("The candidate database already exists.")
+            try:
+                _create_candidate(environment)
+                created = True
+                _copy_to_container(environment, dump_path, container_dump)
+                restored = _pg_restore(environment, container_dump)
+                if restored.returncode != 0:
+                    detail = (restored.stderr or restored.stdout or "").strip()
+                    raise SnapshotError(detail or "The candidate restore failed.")
+                evidence = validate_candidate(environment, manifest)
+            except Exception:
+                if created:
+                    drop_database(environment, CANDIDATE_DATABASE)
+                raise
     finally:
         _remove_container_dump(environment, container_dump)
     return evidence
@@ -191,8 +205,55 @@ def restore_candidate(environment: str, dump_path: Path) -> dict[str, object]:
 def abort_candidate(environment: str) -> None:
     """Drop openfactors_candidate when it is present. No other name is accepted."""
     require_environment(environment)
-    if _database_exists(environment, CANDIDATE_DATABASE):
-        drop_database(environment, CANDIDATE_DATABASE)
+    with _generation_lock(environment):
+        if _database_exists(environment, CANDIDATE_DATABASE):
+            drop_database(environment, CANDIDATE_DATABASE)
+
+
+def cleanup_generation(
+    environment: str,
+    target: str,
+    confirm_release: str,
+    *,
+    dry_run: bool = False,
+) -> dict[str, object]:
+    """Drop one confirmed obsolete generation.
+
+    The target must be openfactors_expired or a demoted openfactors_candidate.
+    Promotion and rollback do not call this. A dry run does not drop anything.
+    """
+    _assert_cleanup_target(target)
+    _confirm_release(confirm_release)
+    if environment not in CUTOVER_CLUSTERS:
+        raise SnapshotError("Cleanup runs only on the test or staging cluster.")
+    with _generation_lock(environment):
+        return _cleanup_generation_locked(
+            environment,
+            target,
+            confirm_release,
+            dry_run=dry_run,
+        )
+
+
+def _cleanup_generation_locked(
+    environment: str,
+    target: str,
+    confirm_release: str,
+    *,
+    dry_run: bool,
+) -> dict[str, object]:
+    report = _cleanup_report(environment, target, confirm_release)
+    if dry_run or not report["allowed"]:
+        if not dry_run:
+            raise SnapshotError(str(report["reason"]))
+        return report
+    confirmed = _cleanup_report(environment, target, confirm_release)
+    if not confirmed["allowed"] or confirmed["release_id"] != report["release_id"]:
+        raise SnapshotError(str(confirmed["reason"]))
+    _drop_obsolete_generation(environment, target)
+    report["dropped"] = True
+    report["reason"] = "The obsolete generation was dropped."
+    return report
 
 
 def promote_candidate(
@@ -209,6 +270,20 @@ def promote_candidate(
     """
     release_id = _confirm_release(confirm_release)
     _assert_cutover_cluster(environment)
+    with _generation_lock(environment):
+        return _promote_candidate_locked(
+            environment,
+            release_id,
+            abort_after_rename=abort_after_rename,
+        )
+
+
+def _promote_candidate_locked(
+    environment: str,
+    release_id: str,
+    *,
+    abort_after_rename: bool,
+) -> dict[str, object]:
     assert_cluster_roles(environment, REQUIRED_ROLES)
     catalog = _cutover_catalog(environment)
     if catalog[CANDIDATE_DATABASE] is None:
@@ -253,6 +328,20 @@ def rollback_serving(
     """
     release_id = _confirm_release(confirm_release)
     _assert_cutover_cluster(environment)
+    with _generation_lock(environment):
+        return _rollback_serving_locked(
+            environment,
+            release_id,
+            abort_after_rename=abort_after_rename,
+        )
+
+
+def _rollback_serving_locked(
+    environment: str,
+    release_id: str,
+    *,
+    abort_after_rename: bool,
+) -> dict[str, object]:
     assert_cluster_roles(environment, REQUIRED_ROLES)
     catalog = _cutover_catalog(environment)
     if catalog[PREVIOUS_DATABASE] is None:
@@ -385,6 +474,7 @@ def assert_cluster_roles(environment: str, required: tuple[str, ...]) -> None:
 
 
 def drop_database(environment: str, database: str) -> None:
+    _guard_generation_lock(environment)
     _assert_candidate_target(database)
     if _database_comment(environment, database) == _DEMOTED_MARK:
         raise SnapshotError("The candidate is a preserved serving generation and is not dropped.")
@@ -586,6 +676,7 @@ def _database_exists(environment: str, database: str) -> bool:
 
 
 def _create_candidate(environment: str) -> None:
+    _guard_generation_lock(environment)
     _assert_candidate_target(CANDIDATE_DATABASE)
     _admin(environment, "postgres", f"CREATE DATABASE {CANDIDATE_DATABASE};")
 
@@ -715,6 +806,195 @@ def _admin(environment: str, database: str, sql: str) -> str:
         detail = (completed.stderr or completed.stdout or "").strip()
         raise SnapshotError(detail or "The snapshot query failed.")
     return completed.stdout
+
+
+_active_generation_lock: contextvars.ContextVar[_generation_lock | None] = contextvars.ContextVar(
+    "_active_generation_lock",
+    default=None,
+)
+
+
+class _generation_lock:
+    """Hold the cluster generation lock until this command finishes.
+
+    The lock lives in its own session. That session stays open through
+    DROP DATABASE and the renames. Closing it is what releases the lock.
+    """
+
+    def __init__(self, environment: str) -> None:
+        self.environment = environment
+        self._process: subprocess.Popen[str] | None = None
+        self._pid: int | None = None
+        self._token: contextvars.Token[_generation_lock | None] | None = None
+
+    def __enter__(self) -> _generation_lock:
+        self._process = subprocess.Popen(
+            [
+                *compose_base(self.environment),
+                "exec",
+                "-T",
+                "postgres",
+                "stdbuf",
+                "-oL",
+                "-eL",
+                "psql",
+                "--username",
+                "of_admin",
+                "--dbname",
+                "postgres",
+                "--no-align",
+                "--tuples-only",
+                "--set",
+                "ON_ERROR_STOP=1",
+            ],
+            cwd=ROOT,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        assert self._process.stdin is not None
+        self._process.stdin.write(
+            "SELECT CASE WHEN pg_try_advisory_lock("
+            f"{_GENERATION_LOCK_CLASS}, {_GENERATION_LOCK_OBJECT}"
+            ") THEN 'locked' ELSE 'busy' END;\n"
+        )
+        self._process.stdin.flush()
+        line = _read_process_line(self._process)
+        if line.strip() != "locked":
+            busy = line.strip() == "busy"
+            self._close()
+            if busy:
+                raise SnapshotError("Another generation command is running.")
+            raise SnapshotError("The generation lock could not be acquired.")
+        assert self._process.stdin is not None
+        self._process.stdin.write("SELECT pg_backend_pid();\n")
+        self._process.stdin.flush()
+        pid_line = _read_process_line(self._process).strip()
+        if not pid_line.isdigit():
+            self._close()
+            raise SnapshotError("The generation lock could not be acquired.")
+        self._pid = int(pid_line)
+        self._token = _active_generation_lock.set(self)
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        if self._token is not None:
+            _active_generation_lock.reset(self._token)
+            self._token = None
+        self._close()
+
+    def lose_session(self) -> None:
+        """Drop the lock-holding backend. Tests use this to simulate a disconnect."""
+        if self._pid is not None:
+            _admin(
+                self.environment,
+                "postgres",
+                f"SELECT pg_terminate_backend({self._pid});",
+            )
+        self._close()
+
+    def session_holds_lock(self) -> bool:
+        if self._process is None or self._pid is None or self._process.poll() is not None:
+            return False
+        count = _admin(
+            self.environment,
+            "postgres",
+            "SELECT count(*)::text FROM pg_locks "
+            "WHERE locktype = 'advisory' AND granted "
+            f"AND classid = {_GENERATION_LOCK_CLASS} "
+            f"AND objid = {_GENERATION_LOCK_OBJECT} "
+            f"AND pid = {self._pid};",
+        ).strip()
+        return count == "1"
+
+    def run_while_held(self, sql: str, *, marker: str) -> None:
+        """Run one statement on the lock session, then require a marker row.
+
+        A disconnected session cannot execute the statement. The marker is a
+        following SELECT, so a command tag is not treated as success.
+        """
+        if not marker.isascii() or not marker.isalnum():
+            raise SnapshotError("Cleanup refuses this database statement.")
+        if (
+            self._process is None
+            or self._process.stdin is None
+            or self._process.poll() is not None
+            or not self.session_holds_lock()
+        ):
+            raise SnapshotError(
+                "The generation lock was lost. Inspect pg_database before retrying."
+            )
+        statement = sql if sql.endswith("\n") else f"{sql}\n"
+        try:
+            self._process.stdin.write(f"{statement}SELECT '{marker}';\n")
+            self._process.stdin.flush()
+        except OSError as exc:
+            raise SnapshotError(
+                "The generation lock was lost. Inspect pg_database before retrying."
+            ) from exc
+        for _line_number in range(5):
+            line = _read_process_line(
+                self._process,
+                timeout=30,
+                failure="The drop was not confirmed. Inspect pg_database before retrying.",
+            ).strip()
+            if line == marker:
+                return
+            if self._process.poll() is not None:
+                break
+        raise SnapshotError("The drop was not confirmed. Inspect pg_database before retrying.")
+
+    def _close(self) -> None:
+        process = self._process
+        self._process = None
+        if process is None or process.poll() is not None:
+            return
+        if process.stdin is not None:
+            process.stdin.close()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+
+
+def _guard_generation_lock(environment: str, *, required: bool = False) -> None:
+    """Stop a generation command whose lock session has disconnected.
+
+    Calls made outside a generation command are unchanged unless the caller
+    requires the lock. Manual SQL does not hold this lock.
+    """
+    lock = _active_generation_lock.get()
+    if lock is None:
+        if required:
+            raise SnapshotError(
+                "The generation lock was lost. Inspect pg_database before retrying."
+            )
+        return
+    if lock.environment != environment or not lock.session_holds_lock():
+        raise SnapshotError("The generation lock was lost. Inspect pg_database before retrying.")
+
+
+def _read_process_line(
+    process: subprocess.Popen[str],
+    timeout: float = 10,
+    failure: str = "The generation lock could not be acquired.",
+) -> str:
+    if process.stdout is None:
+        return ""
+    box: dict[str, str] = {}
+
+    def read() -> None:
+        box["line"] = process.stdout.readline() if process.stdout is not None else ""
+
+    thread = threading.Thread(target=read)
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        process.kill()
+        raise SnapshotError(failure)
+    return box.get("line", "")
 
 
 def _run(
@@ -894,6 +1174,7 @@ def _finish_restored_serving(
 
 
 def _set_connections(environment: str, database: str, *, allow: bool) -> None:
+    _guard_generation_lock(environment)
     _assert_cutover_name(database)
     flag = "true" if allow else "false"
     _admin(
@@ -904,6 +1185,7 @@ def _set_connections(environment: str, database: str, *, allow: bool) -> None:
 
 
 def _terminate_database(environment: str, database: str) -> None:
+    _guard_generation_lock(environment)
     _assert_cutover_name(database)
     for _attempt in range(3):
         _admin(
@@ -945,6 +1227,7 @@ def _rename_transaction(
     if fail_before_commit:
         statements.append("SELECT 1/0;")
     statements.append("COMMIT;")
+    _guard_generation_lock(environment)
     _admin(environment, "postgres", "\n".join(statements))
 
 
@@ -1044,13 +1327,178 @@ def _evidence(database: str, identity: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _cleanup_report(environment: str, target: str, confirm_release: str) -> dict[str, object]:
+    """Decide whether one generation may be dropped. This does not drop it."""
+    _assert_cleanup_target(target)
+    release_id = _confirm_release(confirm_release)
+    if environment not in CUTOVER_CLUSTERS:
+        raise SnapshotError("Cleanup runs only on the test or staging cluster.")
+    catalog = _cutover_catalog(environment)
+    state = catalog[target]
+    connections = _target_connections(environment, target) if state is not None else 0
+    report: dict[str, object] = {
+        "target": target,
+        "release_id": None,
+        "state": state or "absent",
+        "connections": connections,
+        "serving_state": catalog[SERVING_DATABASE] or "absent",
+        "previous_state": catalog[PREVIOUS_DATABASE] or "absent",
+        "allowed": False,
+        "dropped": False,
+        "reason": "",
+    }
+    if state is None:
+        report["reason"] = "The target database is absent."
+        return report
+    if connections != 0:
+        report["reason"] = "A session is using the target database."
+        return report
+    if target == EXPIRED_DATABASE and state != "closed":
+        report["reason"] = "The expired generation is accepting connections."
+        return report
+    if target == CANDIDATE_DATABASE and _database_comment(environment, target) != _DEMOTED_MARK:
+        report["reason"] = "The candidate is not a demoted serving generation."
+        return report
+    if target == CANDIDATE_DATABASE and catalog[PREVIOUS_DATABASE] is None:
+        report["reason"] = "The demoted candidate is the only remaining copy of its release."
+        return report
+    if target == EXPIRED_DATABASE and _database_comment(environment, target):
+        report["reason"] = "The expired generation has an unexpected catalog comment."
+        return report
+    if catalog[SERVING_DATABASE] is None:
+        report["reason"] = "The serving database is missing."
+        return report
+    if catalog[SERVING_DATABASE] != "open":
+        report["reason"] = "The serving database is not accepting connections."
+        return report
+    if catalog[PREVIOUS_DATABASE] == "open":
+        report["reason"] = "The previous serving database is accepting connections."
+        return report
+    try:
+        serving = _published_identity(environment, SERVING_DATABASE)
+    except SnapshotError as exc:
+        report["reason"] = str(exc)
+        return report
+    if _run(environment, SERVING_DATABASE, "SELECT 1;", user="of_api").returncode != 0:
+        report["reason"] = "The serving database is not accepting API connections."
+        return report
+    try:
+        identity = _read_cleanup_identity(environment, target, state)
+    except SnapshotError as exc:
+        report["reason"] = str(exc)
+        return report
+    report["release_id"] = identity["release_id"]
+    if identity["release_id"] != release_id:
+        report["reason"] = "The confirmation does not match the database release."
+        return report
+    if identity["release_id"] == serving["release_id"]:
+        report["reason"] = "The target release is still the serving release."
+        return report
+    if _target_connections(environment, target) != 0:
+        report["reason"] = "A session is using the target database."
+        return report
+    if target == EXPIRED_DATABASE:
+        report["reason"] = (
+            "The expired generation is closed, its release matches, "
+            "and the serving database is a different published release."
+        )
+    else:
+        report["reason"] = (
+            "The candidate is a demoted generation, its release matches, "
+            "and the serving database is a different published release."
+        )
+    report["allowed"] = True
+    return report
+
+
+def _read_cleanup_identity(
+    environment: str,
+    database: str,
+    state: str,
+    *,
+    fail_reclose: bool = False,
+) -> dict[str, object]:
+    """Read a closed target, then restore its closed state.
+
+    fail_reclose is a test seam. It leaves the target open and reports how to close it.
+    """
+    _assert_cleanup_target(database)
+    opened = state == "closed"
+    if opened:
+        _set_connections(environment, database, allow=True)
+    try:
+        return _published_identity(environment, database)
+    finally:
+        if opened:
+            _reclose_cleanup_target(environment, database, fail=fail_reclose)
+
+
+def _reclose_cleanup_target(environment: str, database: str, *, fail: bool) -> None:
+    if fail:
+        raise SnapshotError(
+            "The target was opened for inspection and could not be closed. "
+            "Inspect pg_database and set ALLOW_CONNECTIONS false before retrying."
+        )
+    try:
+        _set_connections(environment, database, allow=False)
+    except SnapshotError as exc:
+        raise SnapshotError(
+            "The target was opened for inspection and could not be closed. "
+            "Inspect pg_database and set ALLOW_CONNECTIONS false before retrying. " + str(exc)
+        ) from exc
+
+
+def _drop_obsolete_generation(environment: str, target: str) -> None:
+    """Drop one allow-listed generation. Sessions are not terminated."""
+    _assert_cleanup_target(target)
+    if _target_connections(environment, target) != 0:
+        raise SnapshotError("A session is using the target database.")
+    catalog = _cutover_catalog(environment)
+    if catalog[target] is None or catalog[SERVING_DATABASE] != "open":
+        raise SnapshotError("The cutover databases are in an unexpected state.")
+    if catalog[PREVIOUS_DATABASE] == "open":
+        raise SnapshotError("The previous serving database is accepting connections.")
+    if target == EXPIRED_DATABASE and catalog[target] != "closed":
+        raise SnapshotError("The expired generation is accepting connections.")
+    if target == CANDIDATE_DATABASE and catalog[PREVIOUS_DATABASE] is None:
+        raise SnapshotError("The demoted candidate is the only remaining copy of its release.")
+    if target == CANDIDATE_DATABASE and _database_comment(environment, target) != _DEMOTED_MARK:
+        raise SnapshotError("The candidate is not a demoted serving generation.")
+    statement = _DROP_SQL[target]
+    if "CASCADE" in statement or "IF EXISTS" in statement:
+        raise SnapshotError("Cleanup refuses this database statement.")
+    _guard_generation_lock(environment, required=True)
+    lock = _active_generation_lock.get()
+    if lock is None:
+        raise SnapshotError("The generation lock was lost. Inspect pg_database before retrying.")
+    lock.run_while_held(statement, marker="dropped")
+
+
+def _assert_cleanup_target(database: str) -> None:
+    if database not in CLEANUP_TARGETS:
+        raise SnapshotError("Cleanup refuses this database name.")
+
+
+def _target_connections(environment: str, database: str) -> int:
+    _assert_cleanup_target(database)
+    count = _admin(
+        environment,
+        "postgres",
+        "SELECT count(*)::text FROM pg_stat_activity "
+        f"WHERE datname = {sql_literal(database)} AND pid <> pg_backend_pid();",
+    ).strip()
+    return int(count or "0")
+
+
 def _default_output(environment: str) -> Path:
     return runtime_dir(environment) / "publications"
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Create a selective snapshot, restore a candidate, or cut it over."
+        description=(
+            "Create a selective snapshot, restore a candidate, cut it over, or clean a generation."
+        )
     )
     sub = parser.add_subparsers(dest="command", required=True)
     create_cmd = sub.add_parser("create")
@@ -1067,6 +1515,11 @@ def main(argv: list[str] | None = None) -> None:
     rollback_cmd = sub.add_parser("rollback-serving")
     rollback_cmd.add_argument("environment")
     rollback_cmd.add_argument("--confirm-release", required=True)
+    cleanup_cmd = sub.add_parser("cleanup-generation")
+    cleanup_cmd.add_argument("environment")
+    cleanup_cmd.add_argument("--target", required=True)
+    cleanup_cmd.add_argument("--confirm-release", required=True)
+    cleanup_cmd.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     try:
         if args.command == "create":
@@ -1081,6 +1534,18 @@ def main(argv: list[str] | None = None) -> None:
             print(json.dumps(promote_candidate(args.environment, args.confirm_release), indent=2))
         elif args.command == "rollback-serving":
             print(json.dumps(rollback_serving(args.environment, args.confirm_release), indent=2))
+        elif args.command == "cleanup-generation":
+            print(
+                json.dumps(
+                    cleanup_generation(
+                        args.environment,
+                        args.target,
+                        args.confirm_release,
+                        dry_run=args.dry_run,
+                    ),
+                    indent=2,
+                )
+            )
     except SnapshotError as exc:
         raise SystemExit(str(exc)) from exc
 
