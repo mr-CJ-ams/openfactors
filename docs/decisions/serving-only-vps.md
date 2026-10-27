@@ -1,10 +1,10 @@
 # Serving-only VPS specification
 
-Public Beta v0.1 stays no-go. No host is purchased. This file describes the approved serving layout. It does not deploy it, and it does not add snapshot cutover or backup automation.
+Public Beta v0.1 stays no-go. No host is purchased. This file describes the approved serving layout. It does not deploy it, and it does not add backup automation.
 
 The development computer keeps ingestion, the raw archive, dbt, validation, and release promotion. The VPS, when one is later approved, runs three things: an HTTPS reverse proxy, the standard-library API, and a PostgreSQL serving copy. Silo, Airflow, and private batch jobs stay off that machine for v0.1.
 
-A published release reaches the VPS as a database snapshot. `python -m ops.publish_snapshot create` writes that dump and its manifest. `python -m ops.publish_snapshot restore-candidate` loads it into the database `openfactors_candidate` and checks the copy. Those commands do not rename databases, close connections, or switch the API. Cutover and rollback remain a later change. Validation must use a separate database. It must not overwrite the live serving database.
+A published release reaches the VPS as a database snapshot. `python -m ops.publish_snapshot create` writes that dump and its manifest. `python -m ops.publish_snapshot restore-candidate` loads it into the database `openfactors_candidate` and checks the copy. `promote-candidate` and `rollback-serving` then rename that candidate on the test or staging cluster. They preserve the previous generation and do not drop it. They do not deploy to a VPS. The commands and the closed-connection window are described in `snapshot-cutover.md`.
 
 ## Processes
 

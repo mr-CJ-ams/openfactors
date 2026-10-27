@@ -2,7 +2,7 @@
 
 Public Beta v0.1 stays no-go. No host is purchased. These commands create a selective snapshot and restore it into an isolated candidate database. They do not rename databases, close the API, or replace a live serving database.
 
-The development computer keeps the source database. A later cutover, which is not part of this command, would publish a candidate that has already passed these checks.
+The development computer keeps the source database. After this candidate passes, `snapshot-cutover.md` describes the separate promotion and rollback commands.
 
 ## Prerequisites
 

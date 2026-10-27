@@ -40,6 +40,16 @@ _REQUIRED = (
 )
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _isolated_api_password_directory(tmp_path_factory: pytest.TempPathFactory) -> None:
+    """Use a suite-private password directory.
+
+    The default directory stays exclusively owned by a running API process.
+    Tests that need a specific directory set OPENFACTORS_API_PGPASS_DIR themselves.
+    """
+    os.environ["OPENFACTORS_API_PGPASS_DIR"] = str(tmp_path_factory.mktemp("api-pgpass"))
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     if os.environ.get("OPENFACTORS_REQUIRE_DATABASE") != "1":
         return
