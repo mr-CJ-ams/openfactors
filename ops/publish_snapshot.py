@@ -2,7 +2,8 @@
 
 Promotion renames openfactors_candidate to openfactors_serving and keeps the
 previous generation. Cleanup of an expired or demoted generation is a separate
-command. This does not deploy a host. Public Beta v0.1 stays no-go.
+command. A publisher key can sign the manifest. Local restore does not require
+that signature yet. This does not deploy a host. Public Beta v0.1 stays no-go.
 """
 
 from __future__ import annotations
@@ -13,8 +14,10 @@ import hashlib
 import hmac
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import uuid
 from pathlib import Path
@@ -26,6 +29,9 @@ from ops.local_stack import ROOT, compose_base, require_environment, runtime_dir
 from ops.migrate import sql_literal
 
 DATASET_ID = "daily_external_factors_ph"
+SIGNATURE_PRINCIPAL = "openfactors-publisher"
+SIGNATURE_NAMESPACE = "openfactors-snapshot"
+_SIGNATURE_TIMEOUT_SECONDS = 30
 CANDIDATE_DATABASE = "openfactors_candidate"
 SERVING_DATABASE = "openfactors_serving"
 PREVIOUS_DATABASE = "openfactors_previous"
@@ -461,6 +467,231 @@ def verify_dump(dump_path: Path, manifest: dict[str, object]) -> None:
     expected = str(manifest["dump_sha256_hex"])
     if not hmac.compare_digest(actual, expected):
         raise SnapshotError("The snapshot dump checksum does not match the manifest.")
+
+
+def signature_path_for(manifest_path: Path) -> Path:
+    """Return the sibling signature path. ssh-keygen appends .sig to the file name."""
+    return manifest_path.parent / f"{manifest_path.name}.sig"
+
+
+def sign_manifest(manifest_path: Path, key_path: Path) -> Path:
+    """Sign the manifest bytes with the publisher key. The key is not read here."""
+    manifest_path = Path(manifest_path)
+    key_path = Path(key_path)
+    if not manifest_path.is_file() or manifest_path.stat().st_size == 0:
+        raise SnapshotError("The snapshot manifest is missing.")
+    if not key_path.is_file() or key_path.stat().st_size == 0:
+        raise SnapshotError("The publisher signing key is missing.")
+    _assert_signing_key_location(key_path)
+    _assert_signing_key_file(key_path)
+    destination = signature_path_for(manifest_path)
+    if destination.exists():
+        raise SnapshotError("The snapshot signature already exists.")
+    manifest_bytes = manifest_path.read_bytes()
+    with tempfile.TemporaryDirectory(prefix="openfactors-sign-") as temporary:
+        copied = Path(temporary) / manifest_path.name
+        copied.write_bytes(manifest_bytes)
+        completed = _run_keygen(
+            [
+                _ssh_keygen(),
+                "-Y",
+                "sign",
+                "-f",
+                str(key_path),
+                "-n",
+                SIGNATURE_NAMESPACE,
+                str(copied),
+            ],
+            stdin=None,
+            failure="The snapshot signature could not be written.",
+        )
+        produced = signature_path_for(copied)
+        if completed.returncode != 0 or not produced.is_file():
+            raise SnapshotError("The publisher signing key could not be used.")
+        payload = produced.read_bytes()
+    if (
+        b"-----BEGIN SSH SIGNATURE-----" not in payload
+        or b"-----END SSH SIGNATURE-----" not in payload
+    ):
+        raise SnapshotError("The snapshot signature could not be written.")
+    _publish_new_signature(destination, payload)
+    return destination
+
+
+def verify_manifest(
+    manifest_path: Path,
+    signature_path: Path,
+    allowed_signers_path: Path,
+) -> None:
+    """Verify the manifest bytes. Identity and the signers file are local pins.
+
+    The principal, namespace, and allowed-signers path are not read from the
+    manifest. A failed check does not create a database.
+    """
+    manifest_path = Path(manifest_path)
+    signature_path = Path(signature_path)
+    allowed_signers_path = Path(allowed_signers_path)
+    if not manifest_path.is_file() or manifest_path.stat().st_size == 0:
+        raise SnapshotError("The snapshot manifest is missing.")
+    _require_signature_file(signature_path)
+    _require_allowed_signers(allowed_signers_path)
+    manifest_bytes = manifest_path.read_bytes()
+    completed = _run_keygen(
+        [
+            _ssh_keygen(),
+            "-Y",
+            "verify",
+            "-f",
+            str(allowed_signers_path),
+            "-I",
+            SIGNATURE_PRINCIPAL,
+            "-n",
+            SIGNATURE_NAMESPACE,
+            "-s",
+            str(signature_path),
+        ],
+        stdin=manifest_bytes,
+        failure="Signature verification did not finish.",
+    )
+    if completed.returncode != 0:
+        raise SnapshotError("The snapshot signature was rejected.")
+    stdout = completed.stdout.decode("utf-8", errors="replace").replace("\r", "")
+    expected = f'Good "{SIGNATURE_NAMESPACE}" signature for {SIGNATURE_PRINCIPAL} with ED25519 key '
+    if expected not in stdout:
+        raise SnapshotError("The snapshot signature was rejected.")
+
+
+def _assert_signing_key_file(key_path: Path) -> None:
+    """Refuse a symlink or, on POSIX, a key other accounts can read.
+
+    Windows does not expose Unix mode bits, so the mode check runs on POSIX.
+    An unencrypted key is still readable by the development account.
+    """
+    if key_path.is_symlink():
+        raise SnapshotError("The publisher signing key must be a regular file.")
+    if not _private_key_mode_applies():
+        return
+    if key_path.stat().st_mode & 0o077:
+        raise SnapshotError("The publisher signing key is readable by other accounts.")
+
+
+def _private_key_mode_applies() -> bool:
+    return os.name == "posix"
+
+
+def _publish_new_signature(destination: Path, payload: bytes) -> None:
+    """Publish a complete signature without replacing an existing file.
+
+    The temporary file is in the destination directory. A crash can leave that
+    partial name. It is not the signature. The final name appears only after
+    the complete bytes are in place.
+    """
+    temporary = destination.with_name(f".{destination.name}.{os.getpid()}.partial")
+    try:
+        with temporary.open("xb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if os.name == "posix":
+            os.link(temporary, destination)
+        else:
+            os.rename(temporary, destination)
+    except FileExistsError as exc:
+        raise SnapshotError("The snapshot signature already exists.") from exc
+    except OSError as exc:
+        raise SnapshotError("The snapshot signature could not be written.") from exc
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _assert_signing_key_location(key_path: Path) -> None:
+    resolved = key_path.resolve()
+    root = ROOT.resolve()
+    runtime = (root / "ops" / "local" / "runtime").resolve()
+    try:
+        resolved.relative_to(runtime)
+        return
+    except ValueError:
+        pass
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        return
+    raise SnapshotError("The publisher signing key must stay outside Git.")
+
+
+def _require_signature_file(signature_path: Path) -> None:
+    if not signature_path.is_file() or signature_path.stat().st_size == 0:
+        raise SnapshotError("The snapshot signature is missing.")
+    try:
+        payload = signature_path.read_bytes()
+    except OSError as exc:
+        raise SnapshotError("The snapshot signature is malformed.") from exc
+    if (
+        b"-----BEGIN SSH SIGNATURE-----" not in payload
+        or b"-----END SSH SIGNATURE-----" not in payload
+    ):
+        raise SnapshotError("The snapshot signature is malformed.")
+
+
+def _require_allowed_signers(path: Path) -> None:
+    if not path.is_file() or path.stat().st_size == 0:
+        raise SnapshotError("The allowed signers file is missing.")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise SnapshotError("The allowed signers file cannot be read.") from exc
+    except UnicodeError as exc:
+        raise SnapshotError("The allowed signers file is invalid.") from exc
+    principal = SIGNATURE_PRINCIPAL
+    namespace = f'namespaces="{SIGNATURE_NAMESPACE}"'
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        fields = line.split()
+        if not fields or fields[0] != principal:
+            continue
+        if namespace in line and "ssh-ed25519 " in line:
+            return
+    raise SnapshotError("The allowed signers file is invalid.")
+
+
+def _ssh_keygen() -> str:
+    found = shutil.which("ssh-keygen")
+    if not found:
+        raise SnapshotError("ssh-keygen is not available.")
+    return found
+
+
+def _run_keygen(
+    args: list[str],
+    *,
+    stdin: bytes | None,
+    failure: str,
+) -> subprocess.CompletedProcess[bytes]:
+    try:
+        if stdin is None:
+            return subprocess.run(
+                args,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                timeout=_SIGNATURE_TIMEOUT_SECONDS,
+                check=False,
+            )
+        return subprocess.run(
+            args,
+            input=stdin,
+            capture_output=True,
+            timeout=_SIGNATURE_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise SnapshotError(failure) from exc
+    except FileNotFoundError as exc:
+        raise SnapshotError("ssh-keygen is not available.") from exc
+    except OSError as exc:
+        raise SnapshotError("ssh-keygen is not available.") from exc
 
 
 def assert_cluster_roles(environment: str, required: tuple[str, ...]) -> None:
@@ -1497,7 +1728,8 @@ def _default_output(environment: str) -> Path:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Create a selective snapshot, restore a candidate, cut it over, or clean a generation."
+            "Create a selective snapshot, restore a candidate, cut it over, "
+            "clean a generation, or sign its manifest."
         )
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1520,6 +1752,13 @@ def main(argv: list[str] | None = None) -> None:
     cleanup_cmd.add_argument("--target", required=True)
     cleanup_cmd.add_argument("--confirm-release", required=True)
     cleanup_cmd.add_argument("--dry-run", action="store_true")
+    sign_cmd = sub.add_parser("sign-manifest")
+    sign_cmd.add_argument("manifest", type=Path)
+    sign_cmd.add_argument("--key", type=Path, required=True)
+    verify_cmd = sub.add_parser("verify-manifest")
+    verify_cmd.add_argument("manifest", type=Path)
+    verify_cmd.add_argument("--signature", type=Path)
+    verify_cmd.add_argument("--allowed-signers", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "create":
@@ -1546,6 +1785,12 @@ def main(argv: list[str] | None = None) -> None:
                     indent=2,
                 )
             )
+        elif args.command == "sign-manifest":
+            print(sign_manifest(args.manifest, args.key))
+        elif args.command == "verify-manifest":
+            signature = args.signature or signature_path_for(args.manifest)
+            verify_manifest(args.manifest, signature, args.allowed_signers)
+            print("Snapshot signature accepted.")
     except SnapshotError as exc:
         raise SystemExit(str(exc)) from exc
 
