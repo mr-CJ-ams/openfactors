@@ -2,7 +2,7 @@
 
 Public Beta v0.1 stays no-go. No host is purchased. This command signs an existing snapshot manifest. It does not transfer the snapshot, create a database, or change `openfactors_dev`.
 
-The manifest schema is unchanged. The dump SHA-256 check is unchanged. Local create, restore, promotion, rollback, and cleanup do not require a signature yet.
+The manifest schema is unchanged. The dump SHA-256 check is unchanged. Local dev and test restore do not require a signature. Staging restore does: `restore-accepted` verifies this signature before it creates a candidate. Rollback and cleanup do not read the signature.
 
 ## Keys
 
