@@ -114,7 +114,15 @@ If the command reports an error, look at `accepted/<release-id>/READY` before re
 
 A directory without `READY` is not an accepted release. The command will not delete it and will not publish over it. Move that directory aside by hand after you confirm the path, then run acceptance again. Do not point a restore at it.
 
-Different bytes for an existing release are left in place. Do not delete that directory from this command. Inspect it later with the signature check in `snapshot-signature.md`. Restore does not read `accepted/` yet.
+Different bytes for an existing release are left in place. Do not delete that directory from this command. Inspect it later with the signature check in `snapshot-signature.md`. Serving restore reads this directory with `restore-accepted staging <release-id>`. Root creates the private parent `/var/openfactors/restore` once, as mode `0700`. The command then creates its own child `/var/openfactors/restore/<release-id>.<pid>.<token>` and copies the files there. The command deletes only that one child. After a crash, root may remove that same child after confirming no restore process is running. Do not delete the parent directory, and do not delete `accepted/`.
+
+The private parent is not created by the command. Root creates it once:
+
+```text
+install -d -o root -g root -m 0700 /var/openfactors/restore
+```
+
+Do not run that command on this development computer. There is no serving host yet.
 
 If the error says another acceptance is running, wait for that process. Do not delete the lock by hand while it is running.
 
@@ -139,9 +147,9 @@ Publication itself is Linux `renameat2(RENAME_NOREPLACE)`. The manifest signatur
 
 `COMMIT.partial` does not authenticate the publisher. `READY` does not authenticate the publisher. The Ed25519 signature and the pinned allowed-signers file do.
 
-The accept user can still change modes on its own tree. The transfer user cannot. A later restore, before `CREATE DATABASE`, must resolve `accepted/<release-id>`, require `READY`, refuse a symlink, verify the manifest signature, and verify the dump. That restore check is not implemented here. Promotion, rollback, and cleanup do not read the accepted directory.
+The accept user can still change modes on its own tree. The transfer user cannot. `restore-accepted` reads `accepted/<release-id>` through a directory descriptor, requires `READY`, refuses a symlink, verifies the manifest signature against `/var/openfactors/pin/allowed_signers`, and verifies the dump SHA-256 before `CREATE DATABASE`. Promotion on `staging` then requires the comment `openfactors-authenticated`. That promotion trusts the stored comment. It does not read the signature again. Rollback and cleanup do not read the accepted directory.
 
-The pin file is the trust root. It is chosen by the operator on the command line, from `/var/openfactors/pin/allowed_signers`. It is not taken from the upload, and it is not stored under a directory the acceptance user can write. The transfer public key must not be a line in that file. The principal stays `openfactors-publisher` and the namespace stays `openfactors-snapshot`.
+The pin file is the trust root. It is chosen by the operator on the command line, from `/var/openfactors/pin/allowed_signers`. It is not taken from the upload, and it is not stored under a directory the acceptance user can write. The transfer public key must not be a line in that file. The principal stays `openfactors-publisher` and the namespace stays `openfactors-snapshot`. Mode checks on the pin and the private restore directory do not see ACLs. A default ACL or an access ACL can grant write that the mode bits hide. Root can replace the pin or write the catalog comment directly.
 
 Accepted files are one disk. They are not a backup of `openfactors_dev`, and they are not an offsite copy.
 

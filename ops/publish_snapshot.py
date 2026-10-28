@@ -2,19 +2,24 @@
 
 Promotion renames openfactors_candidate to openfactors_serving and keeps the
 previous generation. Cleanup of an expired or demoted generation is a separate
-command. A publisher key can sign the manifest. Local restore does not require
-that signature yet. This does not deploy a host. Public Beta v0.1 stays no-go.
+command. A publisher key can sign the manifest. Local dev and test restore do
+not require that signature. Staging restore uses restore-accepted and writes
+openfactors-authenticated only after validation. This does not deploy a host.
+Public Beta v0.1 stays no-go.
 """
 
 from __future__ import annotations
 
 import argparse
 import contextvars
+import errno
 import hashlib
 import hmac
 import json
 import os
+import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -49,6 +54,12 @@ _DROP_SQL = {
     CANDIDATE_DATABASE: "DROP DATABASE openfactors_candidate;",
 }
 _DEMOTED_MARK = "openfactors-demoted"
+_AUTHENTICATED_MARK = "openfactors-authenticated"
+ACCEPTED_ROOT = Path("/var/openfactors/accept/accepted")
+PIN_PATH = Path("/var/openfactors/pin/allowed_signers")
+RESTORE_ROOT = Path("/var/openfactors/restore")
+_RELEASE_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+_READY_TEXT = "openfactors-accepted\n"
 _ALLOWED_AFTER = frozenset(
     {
         f"COMMENT ON DATABASE {CANDIDATE_DATABASE} IS {sql_literal(_DEMOTED_MARK)};",
@@ -177,6 +188,8 @@ def create_snapshot(environment: str, destination: Path) -> Path:
 
 def restore_candidate(environment: str, dump_path: Path) -> dict[str, object]:
     """Restore a checked dump into openfactors_candidate and validate it."""
+    if environment == "staging":
+        raise SnapshotError("Staging restore must use restore-accepted.")
     _source_database(environment)
     _assert_candidate_target(CANDIDATE_DATABASE)
     if _database_exists(environment, CANDIDATE_DATABASE):
@@ -206,6 +219,401 @@ def restore_candidate(environment: str, dump_path: Path) -> dict[str, object]:
     finally:
         _remove_container_dump(environment, container_dump)
     return evidence
+
+
+def restore_accepted(environment: str, release_id: str) -> dict[str, object]:
+    """Restore one accepted release into openfactors_candidate on staging.
+
+    The release id is the only caller input. Paths and the signers file are
+    fixed. Authentication finishes before CREATE DATABASE.
+    """
+    if environment != "staging":
+        raise SnapshotError("Serving restore runs only on the staging cluster.")
+    release_id = _canonical_release_id(release_id)
+    _require_serving_host()
+    private = _authenticate_accepted_release(release_id)
+    try:
+        return _restore_private_candidate(environment, private)
+    finally:
+        _discard_private_restore(private)
+
+
+def _restore_private_candidate(environment: str, private: _PrivateCopy) -> dict[str, object]:
+    manifest = load_manifest(private.manifest)
+    if str(manifest["release_id"]) != private.release_id:
+        raise SnapshotError("The copied manifest release id does not match the accepted release.")
+    verify_dump(private.dump, manifest)
+    assert_cluster_roles(environment, REQUIRED_ROLES)
+    container_dump = _container_dump()
+    created = False
+    try:
+        with _generation_lock(environment):
+            _guard_generation_lock(environment, required=True)
+            if not _same_text(file_sha256(private.dump), private.digest):
+                raise SnapshotError("The private restore copy changed.")
+            if _database_exists(environment, CANDIDATE_DATABASE):
+                raise SnapshotError("The candidate database already exists.")
+            try:
+                _create_candidate(environment)
+                created = True
+                _copy_to_container(environment, private.dump, container_dump)
+                restored = _pg_restore(environment, container_dump)
+                if restored.returncode != 0:
+                    detail = (restored.stderr or restored.stdout or "").strip()
+                    raise SnapshotError(detail or "The candidate restore failed.")
+                evidence = validate_candidate(environment, manifest)
+                _guard_generation_lock(environment, required=True)
+                _mark_authenticated_candidate(environment)
+            except Exception:
+                if created:
+                    drop_database(environment, CANDIDATE_DATABASE)
+                raise
+    finally:
+        _remove_container_dump(environment, container_dump)
+    return evidence
+
+
+def _mark_authenticated_candidate(environment: str) -> None:
+    _guard_generation_lock(environment, required=True)
+    _assert_candidate_target(CANDIDATE_DATABASE)
+    _admin(
+        environment,
+        "postgres",
+        f"COMMENT ON DATABASE {CANDIDATE_DATABASE} IS {sql_literal(_AUTHENTICATED_MARK)};",
+    )
+    if _database_comment(environment, CANDIDATE_DATABASE) != _AUTHENTICATED_MARK:
+        raise SnapshotError("The authenticated candidate comment was not stored.")
+
+
+class _PrivateCopy:
+    def __init__(self, root: Path, release_id: str, digest: str) -> None:
+        self.root = root
+        self.release_id = release_id
+        self.digest = digest
+        self.dump = root / f"{release_id}.dump"
+        self.manifest = root / f"{release_id}.json"
+        self.signature = root / f"{release_id}.json.sig"
+
+
+def _authenticate_accepted_release(release_id: str) -> _PrivateCopy:
+    accepted = _accepted_directory(release_id)
+    owner = _require_restore_owner(accepted)
+    source = _open_directory_fd(accepted)
+    private_fd: int | None = None
+    private: _PrivateCopy | None = None
+    try:
+        info = os.fstat(source)
+        if not stat.S_ISDIR(info.st_mode):
+            raise SnapshotError("The accepted directory is not a real directory.")
+        files = _read_accepted_files(source, release_id)
+        if (info.st_dev, info.st_ino) != _directory_identity(source):
+            raise SnapshotError("The accepted directory changed while it was being read.")
+        private_fd, private = _create_private_copy(release_id)
+        for name, payload in files.items():
+            _write_private(private_fd, name, payload)
+        _require_serving_pin(owner)
+        verify_manifest(private.manifest, private.signature, PIN_PATH)
+        payload = load_manifest(private.manifest)
+        if str(payload["release_id"]) != release_id:
+            raise SnapshotError(
+                "The copied manifest release id does not match the accepted release."
+            )
+        verify_dump(private.dump, payload)
+        private.digest = file_sha256(private.dump)
+        return private
+    except Exception:
+        _discard_private_restore(private)
+        raise
+    finally:
+        os.close(source)
+        if private_fd is not None:
+            os.close(private_fd)
+
+
+def _accepted_directory(release_id: str) -> Path:
+    directory = ACCEPTED_ROOT / release_id
+    if directory.parent != ACCEPTED_ROOT or directory.name != release_id:
+        raise SnapshotError("The release id must be a canonical lowercase UUID.")
+    return directory
+
+
+def _require_serving_host() -> None:
+    if sys.platform != "linux":
+        raise SnapshotError("Serving restore runs only on Linux.")
+    geteuid = getattr(os, "geteuid", None)
+    if geteuid is None or geteuid() != 0:
+        raise SnapshotError("Serving restore must run as root.")
+
+
+def _require_restore_owner(directory: Path) -> int:
+    try:
+        info = os.lstat(directory)
+    except OSError as exc:
+        raise SnapshotError("The accepted directory is missing.") from exc
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise SnapshotError("The accepted directory is not a real directory.")
+    if info.st_uid == 0:
+        raise SnapshotError("Serving restore must not own the accepted release.")
+    return info.st_uid
+
+
+def _open_directory_fd(path: Path) -> int:
+    directory_flag = getattr(os, "O_DIRECTORY", 0)
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    if not directory_flag or not nofollow:
+        raise SnapshotError("This host cannot refuse a replaced accepted directory.")
+    flags = os.O_RDONLY | directory_flag | nofollow | getattr(os, "O_CLOEXEC", 0)
+    try:
+        return os.open(os.fspath(path), flags)
+    except OSError as exc:
+        if exc.errno in {errno.ELOOP, errno.ENOTDIR, getattr(errno, "EMLINK", 0)}:
+            raise SnapshotError("The accepted directory is not a real directory.") from exc
+        raise SnapshotError("The accepted directory could not be read.") from exc
+
+
+def _directory_identity(directory_fd: int) -> tuple[int, int]:
+    info = os.fstat(directory_fd)
+    if not stat.S_ISDIR(info.st_mode):
+        raise SnapshotError("The accepted directory changed while it was being read.")
+    return info.st_dev, info.st_ino
+
+
+def _read_accepted_files(directory_fd: int, release_id: str) -> dict[str, bytes]:
+    expected = {
+        f"{release_id}.dump",
+        f"{release_id}.json",
+        f"{release_id}.json.sig",
+        "READY",
+    }
+    try:
+        names = os.listdir(directory_fd)
+    except OSError as exc:
+        raise SnapshotError("The accepted directory could not be read.") from exc
+    if set(names) != expected:
+        raise SnapshotError("The accepted release does not contain the expected files.")
+    found: dict[str, bytes] = {}
+    for name in names:
+        _reject_component(name)
+        try:
+            info = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        except OSError as exc:
+            raise SnapshotError("An accepted file could not be read.") from exc
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+            raise SnapshotError("The accepted release contains a symlink or an unexpected file.")
+        found[name] = _read_private_source(directory_fd, name, info)
+    ready = found["READY"]
+    if ready != f"{_READY_TEXT}{release_id}\n".encode("ascii"):
+        raise SnapshotError("READY is missing or does not match the release id.")
+    return found
+
+
+def _read_private_source(directory_fd: int, name: str, listed: os.stat_result) -> bytes:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    try:
+        handle = os.open(name, flags, dir_fd=directory_fd)
+    except OSError as exc:
+        if exc.errno in {errno.ELOOP, getattr(errno, "EMLINK", 0)}:
+            raise SnapshotError("The accepted release contains a symlink.") from exc
+        raise SnapshotError("An accepted file could not be read.") from exc
+    try:
+        first = os.fstat(handle)
+        if not stat.S_ISREG(first.st_mode):
+            raise SnapshotError("The accepted release contains an unexpected file.")
+        if (first.st_dev, first.st_ino, first.st_size) != (
+            listed.st_dev,
+            listed.st_ino,
+            listed.st_size,
+        ):
+            raise SnapshotError("The accepted release changed while it was being copied.")
+        blob = _read_fd(handle)
+        os.lseek(handle, 0, os.SEEK_SET)
+        again = _read_fd(handle)
+        second = os.fstat(handle)
+        if (first.st_dev, first.st_ino, first.st_size) != (
+            second.st_dev,
+            second.st_ino,
+            second.st_size,
+        ) or not _same_bytes(blob, again):
+            raise SnapshotError("The accepted release changed while it was being copied.")
+        return blob
+    finally:
+        os.close(handle)
+
+
+def _read_fd(handle: int) -> bytes:
+    chunks: list[bytes] = []
+    while True:
+        piece = os.read(handle, 1024 * 1024)
+        if not piece:
+            break
+        chunks.append(piece)
+    return b"".join(chunks)
+
+
+def _create_private_copy(release_id: str) -> tuple[int, _PrivateCopy]:
+    parent = _open_restore_parent()
+    name = f"{release_id}.{os.getpid()}.{uuid.uuid4().hex}"
+    child_path = RESTORE_ROOT / name
+    try:
+        os.mkdir(name, mode=0o700, dir_fd=parent)
+        os.chmod(name, 0o700, dir_fd=parent, follow_symlinks=False)
+        flags = (
+            os.O_RDONLY
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0)
+        )
+        child = os.open(name, flags, dir_fd=parent)
+    except OSError as exc:
+        os.close(parent)
+        _discard_private_restore(_PrivateCopy(child_path, release_id, ""))
+        raise SnapshotError("The private restore directory could not be created.") from exc
+    os.close(parent)
+    info = os.fstat(child)
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) & 0o077:
+        os.close(child)
+        _discard_private_restore(_PrivateCopy(child_path, release_id, ""))
+        raise SnapshotError("The private restore directory is not root-only.")
+    return child, _PrivateCopy(child_path, release_id, "")
+
+
+def _open_restore_parent() -> int:
+    try:
+        info = os.lstat(RESTORE_ROOT)
+    except OSError as exc:
+        raise SnapshotError("The private restore directory is missing.") from exc
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise SnapshotError("The private restore directory is not a real directory.")
+    if info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o700:
+        raise SnapshotError("The private restore directory is not root-only.")
+    return _open_directory_fd(RESTORE_ROOT)
+
+
+def _write_private(directory_fd: int, name: str, payload: bytes) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    try:
+        handle = os.open(name, flags, 0o600, dir_fd=directory_fd)
+    except OSError as exc:
+        raise SnapshotError("The private restore copy could not be written.") from exc
+    try:
+        view = payload
+        while view:
+            written = os.write(handle, view)
+            if written <= 0:
+                raise SnapshotError("The private restore copy could not be written.")
+            view = view[written:]
+        os.fsync(handle)
+    finally:
+        os.close(handle)
+
+
+def _require_serving_pin(untrusted_uid: int) -> None:
+    if ".." in Path(os.fspath(PIN_PATH)).parts:
+        raise SnapshotError("The allowed signers path must not contain '..'.")
+    current = Path(os.path.abspath(PIN_PATH))
+    try:
+        info = os.lstat(current)
+    except OSError as exc:
+        raise SnapshotError("The allowed signers file is missing.") from exc
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+        raise SnapshotError("The allowed signers file must be a regular file.")
+    if info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o440:
+        raise SnapshotError("The allowed signers file is not the root-owned pin.")
+    child = info
+    while True:
+        parent = current.parent
+        if parent == current:
+            break
+        try:
+            parent_info = os.lstat(parent)
+        except OSError as exc:
+            raise SnapshotError("The allowed signers path could not be checked.") from exc
+        if stat.S_ISLNK(parent_info.st_mode) or not stat.S_ISDIR(parent_info.st_mode):
+            raise SnapshotError("The allowed signers path contains a symlink.")
+        if _untrusted_can_replace(parent_info, child, untrusted_uid):
+            raise SnapshotError("The acceptance user can replace the allowed signers file.")
+        child = parent_info
+        current = parent
+
+
+def _untrusted_can_replace(
+    directory: os.stat_result,
+    child: os.stat_result,
+    uid: int,
+) -> bool:
+    mode = directory.st_mode
+    writable = bool(mode & stat.S_IWOTH)
+    if directory.st_uid == uid and mode & stat.S_IWUSR:
+        writable = True
+    if mode & stat.S_IWGRP:
+        writable = True
+    if not writable:
+        return False
+    if directory.st_uid == uid:
+        return True
+    if mode & stat.S_ISVTX and child.st_uid != uid:
+        return False
+    return True
+
+
+def _discard_private_restore(private: _PrivateCopy | None) -> None:
+    if private is None:
+        return
+    child = private.root
+    if child.name.count(".") < 2 or not child.name.startswith(f"{private.release_id}."):
+        return
+    try:
+        info = os.lstat(child)
+    except OSError:
+        return
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        return
+    if child.parent != RESTORE_ROOT:
+        return
+    allowed = {private.dump.name, private.manifest.name, private.signature.name, "READY"}
+    try:
+        entries = list(os.scandir(child))
+    except OSError:
+        return
+    for entry in entries:
+        try:
+            unexpected = (
+                entry.name not in allowed
+                or entry.is_symlink()
+                or not entry.is_file(follow_symlinks=False)
+            )
+        except OSError:
+            return
+        if unexpected:
+            return
+        try:
+            os.unlink(entry.path)
+        except OSError:
+            return
+    try:
+        os.rmdir(child)
+    except OSError:
+        return
+
+
+def _canonical_release_id(value: str) -> str:
+    if not isinstance(value, str) or _RELEASE_ID.fullmatch(value) is None:
+        raise SnapshotError("The release id must be a canonical lowercase UUID.")
+    return value
+
+
+def _reject_component(name: str) -> None:
+    if name in {"", ".", ".."} or "/" in name or "\\" in name or "\x00" in name:
+        raise SnapshotError("The accepted release contains an unexpected file.")
+
+
+def _same_bytes(left: bytes, right: bytes) -> bool:
+    return len(left) == len(right) and hmac.compare_digest(left, right)
+
+
+def _same_text(left: str, right: str) -> bool:
+    return len(left) == len(right) and hmac.compare_digest(left, right)
 
 
 def abort_candidate(environment: str) -> None:
@@ -907,7 +1315,7 @@ def _database_exists(environment: str, database: str) -> bool:
 
 
 def _create_candidate(environment: str) -> None:
-    _guard_generation_lock(environment)
+    _guard_generation_lock(environment, required=True)
     _assert_candidate_target(CANDIDATE_DATABASE)
     _admin(environment, "postgres", f"CREATE DATABASE {CANDIDATE_DATABASE};")
 
@@ -1544,6 +1952,10 @@ def _refuse_demoted_candidate(environment: str) -> None:
         raise SnapshotError(
             "The candidate is a preserved serving generation, not a new publication."
         )
+    if environment == "staging":
+        if comment != _AUTHENTICATED_MARK:
+            raise SnapshotError("The candidate was not created by an authenticated restore.")
+        return
     if comment:
         raise SnapshotError("The candidate database has an unexpected catalog comment.")
 
@@ -1739,6 +2151,9 @@ def main(argv: list[str] | None = None) -> None:
     restore_cmd = sub.add_parser("restore-candidate")
     restore_cmd.add_argument("environment")
     restore_cmd.add_argument("dump", type=Path)
+    accepted_cmd = sub.add_parser("restore-accepted")
+    accepted_cmd.add_argument("environment")
+    accepted_cmd.add_argument("release_id")
     abort_cmd = sub.add_parser("abort-candidate")
     abort_cmd.add_argument("environment")
     promote_cmd = sub.add_parser("promote-candidate")
@@ -1766,6 +2181,8 @@ def main(argv: list[str] | None = None) -> None:
             print(create_snapshot(args.environment, destination))
         elif args.command == "restore-candidate":
             print(json.dumps(restore_candidate(args.environment, args.dump), indent=2))
+        elif args.command == "restore-accepted":
+            print(json.dumps(restore_accepted(args.environment, args.release_id), indent=2))
         elif args.command == "abort-candidate":
             abort_candidate(args.environment)
             print("Candidate database removed.")

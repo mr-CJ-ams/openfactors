@@ -31,7 +31,7 @@ Restore and validate on the isolated test cluster:
 python -m ops.publish_snapshot restore-candidate test ops/local/runtime/dev/publications/<release_id>.dump
 ```
 
-The manifest is the `.json` file beside the dump. The dump SHA-256 is checked before `openfactors_candidate` is created. A mismatch does not create a database. That checksum detects accidental corruption. It does not authenticate the publisher. `snapshot-signature.md` describes a separate signature over those manifest bytes. Local create, restore, promotion, rollback, and cleanup do not require that signature yet. `snapshot-transfer-acceptance.md` can place a signed upload in a directory. `restore-candidate` does not read that directory yet. A failed restore or a failed check drops only `openfactors_candidate`. A candidate that is already present is left in place.
+The manifest is the `.json` file beside the dump. The dump SHA-256 is checked before `openfactors_candidate` is created. A mismatch does not create a database. That checksum detects accidental corruption. It does not authenticate the publisher. `dev` and `test` keep this unsigned restore. `restore-candidate staging` is refused before any file or database work. The serving command is `restore-accepted staging <release-id>`. It reads only `/var/openfactors/accept/accepted/<release-id>`, checks `READY`, the pinned signature, and the dump SHA-256, and writes the catalog comment `openfactors-authenticated` after validation. A failed check drops only a candidate this command created. A candidate that is already present is left in place.
 
 Remove a candidate after a drill:
 
