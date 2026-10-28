@@ -80,7 +80,7 @@ The transfer chroot and the acceptance directory are on the same filesystem, so 
 | `accept/staging` | `of_publish_accept:of_publish_accept` | `0700` | Private copies. Discarded after publish or refusal. |
 | `accept/locks` | `of_publish_accept:of_publish_accept` | `0700` | One lock file per release id. |
 | `accept/accepted` | `of_publish_accept:of_publish_accept` | `0750` | Parent stays writable by the accept user so a new release can be renamed in. |
-| `accept/accepted/<uuid>` | `of_publish_accept:of_publish_accept` | `0550` | Published once. Files are `0440`. |
+| `accept/accepted/<uuid>` | `of_publish_accept:of_publish_accept` | `0550` | Published once. Files are `0440`. The directory stays owner-writable until `renameat2` returns, because Linux must update `..`, and is then sealed to `0550`. |
 
 A mode of `0700` on the upload would stop the accept user from reading it. Group read is what makes the copy possible without letting every account on the machine read the upload. The transfer user is not a member of `of_publish_accept`, so that user cannot read `accepted/`.
 

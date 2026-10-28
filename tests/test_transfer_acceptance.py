@@ -447,6 +447,34 @@ def test_a_publication_failure_leaves_no_accepted_release(
     assert list((upload.accept_root / "staging").glob("*")) == []
 
 
+def test_the_directory_is_sealed_after_rename(
+    tmp_path: Path,
+    publisher_key: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    upload = _upload(tmp_path, publisher_key)
+    events: list[str] = []
+    real_chmod = accept_transfer._chmod
+
+    def chmod(path: Path, mode: int) -> None:
+        if mode == 0o550:
+            events.append(f"seal:{path.name}")
+        real_chmod(path, mode)
+
+    def publish(source: Path, destination: Path) -> None:
+        if os.name == "posix":
+            assert source.stat().st_mode & stat.S_IWUSR
+        events.append("rename")
+        destination.mkdir()
+        for child in source.iterdir():
+            (destination / child.name).write_bytes(child.read_bytes())
+
+    monkeypatch.setattr(accept_transfer, "_chmod", chmod)
+    monkeypatch.setattr(accept_transfer, "publish_without_replace", publish)
+    accept_release(upload.release_id, upload.incoming, upload.accept_root, upload.signers)
+    assert events.index("rename") < events.index(f"seal:{RELEASE}")
+
+
 def test_publication_does_not_replace_an_existing_directory(tmp_path: Path) -> None:
     source = tmp_path / "staging"
     source.mkdir()

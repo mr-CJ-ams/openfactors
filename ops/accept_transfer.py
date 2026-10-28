@@ -179,6 +179,7 @@ def _accept_locked(
         published = _publish_directory(staging, destination)
         if not published:
             _require_same_release(staging, destination, written)
+        _chmod(destination, 0o550)
         return destination
     finally:
         opened.close()
@@ -835,11 +836,15 @@ def _write_new(path: Path, payload: bytes) -> None:
 
 
 def _restrict(directory: Path) -> None:
+    """Make staged files read-only and leave the directory writable.
+
+    Linux rename of a directory needs write permission on that directory so it
+    can update the .. entry. The published directory is sealed after the rename.
+    """
     for child in directory.iterdir():
         if child.is_symlink():
             raise TransferAcceptError("A staged file could not be written.")
         _chmod(child, 0o440)
-    _chmod(directory, 0o550)
 
 
 def _fsync_tree(directory: Path) -> None:
