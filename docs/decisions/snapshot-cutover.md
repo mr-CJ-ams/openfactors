@@ -70,7 +70,7 @@ Rollback does not need `openfactors_expired`. It renames the current serving dat
 
 ## Limitations
 
-The dump SHA-256 used to build the candidate detects accidental corruption. It does not authenticate the publisher. Authenticated transfer or signature verification remains a later deployment gate.
+The dump SHA-256 used to build the candidate detects accidental corruption. It does not authenticate the publisher. `snapshot-transfer-acceptance.md` accepts a signed upload into a directory. `restore-candidate` does not read that directory yet, so this cutover still does not check the signature.
 
 `openfactors_previous` is the on-cluster copy used for rollback. It is not an independent offsite backup. Promotion and rollback do not delete `openfactors_previous` or `openfactors_expired`. While an expired generation remains, a further promotion waits. The separate cleanup command in `snapshot-cleanup.md` can remove a confirmed expired generation. It refuses a demoted candidate while `openfactors_previous` is absent, because that candidate is the only on-cluster copy of its release. It does not remove `openfactors_previous`. A later recovery or backup-preservation workflow has to clear that candidate before another restore can use the name.
 

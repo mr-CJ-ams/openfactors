@@ -11,9 +11,9 @@ Two keys stay separate. This command uses only the publisher signing key.
 | Key | File | Use |
 |---|---|---|
 | Publisher signing key | `ops/local/runtime/dev/snapshot-publisher` | `ssh-keygen -Y sign` only |
-| Transfer key | `ops/local/runtime/dev/snapshot-transfer` | A later SFTP login. Not created here. |
+| Transfer key | `ops/local/runtime/dev/snapshot-transfer` | The SFTP login in `snapshot-transfer-acceptance.md`. Not created by this command. |
 
-The private signing key stays on the development computer, under `ops/local/runtime/`, which Git ignores. It is an unencrypted Ed25519 file. On a POSIX host it must be mode `0600`; a key other accounts can read is refused. Windows hides those mode bits, so the account itself is the protection there. The command does not print the key. Do not commit it, do not pass the transfer key to `--key`, and do not copy the private key to the serving host. The serving host receives only the public allowed-signers line.
+Acceptance of an SFTP upload is described in `snapshot-transfer-acceptance.md`. This signature command still does not create that login. The private signing key stays on the development computer, under `ops/local/runtime/`, which Git ignores. It is an unencrypted Ed25519 file. On a POSIX host it must be mode `0600`; a key other accounts can read is refused. Windows hides those mode bits, so the account itself is the protection there. The command does not print the key. Do not commit it, do not pass the transfer key to `--key`, and do not copy the private key to the serving host. The serving host receives only the public allowed-signers line.
 
 Anyone who can use the development account can read this unencrypted key and sign a manifest. A compromise of that account is a compromise of the publisher.
 
