@@ -44,3 +44,5 @@ That drop is limited to `openfactors_candidate`. It does nothing when the candid
 ## What the dump keeps
 
 The custom-format dump excludes `staging` and these tables: `core.fact_daily_weather`, `core.fact_public_holidays`, `core.holiday_calendar_coverage`, `control.raw_manifests`, `control.ingestion_runs`, and `control.checkpoints`. Publish objects, quality validation runs, the source registry, schema migrations, and the date and location dimensions stay. Owners are preserved. The candidate check recomputes the content hash and requires `of_api` to read the catalog while private schemas stay closed.
+
+The VPS command is separate. It is `restore-accepted serving <release-id>` and it runs only when `OPENFACTORS_DB_BACKEND=native`. Local dev, test, and staging stay on Docker Compose. The native command is documented in `native-postgres-serving.md`. It is not deployed, and Public Beta v0.1 stays no-go.

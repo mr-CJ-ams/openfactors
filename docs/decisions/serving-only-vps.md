@@ -76,6 +76,8 @@ On this computer, on 2026-10-27, the dev custom dump is 3,523,158 bytes and the 
 
 The API limits that already exist, and that a proxy test must exercise before a public name is used, are 60 requests per rolling 60 seconds for a non-loopback client, a 5-second statement timeout, 4 concurrent `psql` processes, a 10-second process deadline, and a 30-second socket timeout. Those numbers are provisional until staging measurements.
 
+Native restore on that VPS is specified in `native-postgres-serving.md`. The serving command is `restore-accepted serving`. It is not running here. Docker Compose remains the local dev, test, and staging backend.
+
 ## What this change does not do
 
 It does not select a datacentre, buy a VPS, open an account, or start a public listener. It does not ship a snapshot, cut over a serving database, or schedule an offsite backup. Public Beta v0.1 stays no-go.

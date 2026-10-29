@@ -4,8 +4,9 @@ Promotion renames openfactors_candidate to openfactors_serving and keeps the
 previous generation. Cleanup of an expired or demoted generation is a separate
 command. A publisher key can sign the manifest. Local dev and test restore do
 not require that signature. Staging restore uses restore-accepted and writes
-openfactors-authenticated only after validation. This does not deploy a host.
-Public Beta v0.1 stays no-go.
+openfactors-authenticated only after validation. The serving host uses the
+native backend only when OPENFACTORS_DB_BACKEND=native. Compose stays the
+default. This does not deploy a host. Public Beta v0.1 stays no-go.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from pathlib import Path
 from contracts.check_dataset_contract import CONTRACT_PATH, load_json
 
 from openfactors.quality.manifest import content_sha256
+from ops import db_backend
 from ops.local_stack import ROOT, compose_base, require_environment, runtime_dir
 from ops.migrate import sql_literal
 
@@ -190,6 +192,8 @@ def restore_candidate(environment: str, dump_path: Path) -> dict[str, object]:
     """Restore a checked dump into openfactors_candidate and validate it."""
     if environment == "staging":
         raise SnapshotError("Staging restore must use restore-accepted.")
+    if environment == "serving":
+        raise SnapshotError("Serving restore must use restore-accepted.")
     _source_database(environment)
     _assert_candidate_target(CANDIDATE_DATABASE)
     if _database_exists(environment, CANDIDATE_DATABASE):
@@ -197,38 +201,30 @@ def restore_candidate(environment: str, dump_path: Path) -> dict[str, object]:
     manifest = load_manifest(dump_path.with_suffix(".json"))
     verify_dump(dump_path, manifest)
     assert_cluster_roles(environment, REQUIRED_ROLES)
-    container_dump = _container_dump()
     created = False
-    try:
-        with _generation_lock(environment):
-            if _database_exists(environment, CANDIDATE_DATABASE):
-                raise SnapshotError("The candidate database already exists.")
-            try:
-                _create_candidate(environment)
-                created = True
-                _copy_to_container(environment, dump_path, container_dump)
-                restored = _pg_restore(environment, container_dump)
-                if restored.returncode != 0:
-                    detail = (restored.stderr or restored.stdout or "").strip()
-                    raise SnapshotError(detail or "The candidate restore failed.")
-                evidence = validate_candidate(environment, manifest)
-            except Exception:
-                if created:
-                    drop_database(environment, CANDIDATE_DATABASE)
-                raise
-    finally:
-        _remove_container_dump(environment, container_dump)
+    with _generation_lock(environment):
+        if _database_exists(environment, CANDIDATE_DATABASE):
+            raise SnapshotError("The candidate database already exists.")
+        try:
+            _create_candidate(environment)
+            created = True
+            _restore_dump_file(environment, dump_path)
+            evidence = validate_candidate(environment, manifest)
+        except Exception:
+            if created:
+                drop_database(environment, CANDIDATE_DATABASE)
+            raise
     return evidence
 
 
 def restore_accepted(environment: str, release_id: str) -> dict[str, object]:
-    """Restore one accepted release into openfactors_candidate on staging.
+    """Restore one accepted release into openfactors_candidate.
 
-    The release id is the only caller input. Paths and the signers file are
+    Staging uses Compose. The serving host uses the native backend. The
+    release id is the only caller input. Paths and the signers file are
     fixed. Authentication finishes before CREATE DATABASE.
     """
-    if environment != "staging":
-        raise SnapshotError("Serving restore runs only on the staging cluster.")
+    _assert_accepted_environment(environment)
     release_id = _canonical_release_id(release_id)
     _require_serving_host()
     private = _authenticate_accepted_release(release_id)
@@ -244,32 +240,24 @@ def _restore_private_candidate(environment: str, private: _PrivateCopy) -> dict[
         raise SnapshotError("The copied manifest release id does not match the accepted release.")
     verify_dump(private.dump, manifest)
     assert_cluster_roles(environment, REQUIRED_ROLES)
-    container_dump = _container_dump()
     created = False
-    try:
-        with _generation_lock(environment):
+    with _generation_lock(environment):
+        _guard_generation_lock(environment, required=True)
+        if not _same_text(file_sha256(private.dump), private.digest):
+            raise SnapshotError("The private restore copy changed.")
+        if _database_exists(environment, CANDIDATE_DATABASE):
+            raise SnapshotError("The candidate database already exists.")
+        try:
+            _create_candidate(environment)
+            created = True
+            _restore_dump_file(environment, private.dump)
+            evidence = validate_candidate(environment, manifest)
             _guard_generation_lock(environment, required=True)
-            if not _same_text(file_sha256(private.dump), private.digest):
-                raise SnapshotError("The private restore copy changed.")
-            if _database_exists(environment, CANDIDATE_DATABASE):
-                raise SnapshotError("The candidate database already exists.")
-            try:
-                _create_candidate(environment)
-                created = True
-                _copy_to_container(environment, private.dump, container_dump)
-                restored = _pg_restore(environment, container_dump)
-                if restored.returncode != 0:
-                    detail = (restored.stderr or restored.stdout or "").strip()
-                    raise SnapshotError(detail or "The candidate restore failed.")
-                evidence = validate_candidate(environment, manifest)
-                _guard_generation_lock(environment, required=True)
-                _mark_authenticated_candidate(environment)
-            except Exception:
-                if created:
-                    drop_database(environment, CANDIDATE_DATABASE)
-                raise
-    finally:
-        _remove_container_dump(environment, container_dump)
+            _mark_authenticated_candidate(environment)
+        except Exception:
+            if created:
+                drop_database(environment, CANDIDATE_DATABASE)
+            raise
     return evidence
 
 
@@ -618,7 +606,7 @@ def _same_text(left: str, right: str) -> bool:
 
 def abort_candidate(environment: str) -> None:
     """Drop openfactors_candidate when it is present. No other name is accepted."""
-    require_environment(environment)
+    _assert_operational_cluster(environment)
     with _generation_lock(environment):
         if _database_exists(environment, CANDIDATE_DATABASE):
             drop_database(environment, CANDIDATE_DATABASE)
@@ -638,8 +626,7 @@ def cleanup_generation(
     """
     _assert_cleanup_target(target)
     _confirm_release(confirm_release)
-    if environment not in CUTOVER_CLUSTERS:
-        raise SnapshotError("Cleanup runs only on the test or staging cluster.")
+    _assert_generation_cluster(environment, purpose="Cleanup")
     with _generation_lock(environment):
         return _cleanup_generation_locked(
             environment,
@@ -814,6 +801,7 @@ def validate_candidate(environment: str, manifest: dict[str, object]) -> dict[st
     _require_objects(environment, CANDIDATE_DATABASE)
     _require_absent(environment, CANDIDATE_DATABASE)
     _require_owners(environment, CANDIDATE_DATABASE)
+    _assert_native_database_shape(environment, CANDIDATE_DATABASE)
     _require_api_boundary(environment, CANDIDATE_DATABASE, identity["release_id"])
     return {
         "candidate_database": CANDIDATE_DATABASE,
@@ -1103,6 +1091,8 @@ def _run_keygen(
 
 
 def assert_cluster_roles(environment: str, required: tuple[str, ...]) -> None:
+    if _backend_name() == "native":
+        required = tuple(dict.fromkeys((*required, "of_restore")))
     found = _role_rows(environment)
     missing = [role for role in required if role not in found]
     if missing:
@@ -1110,6 +1100,8 @@ def assert_cluster_roles(environment: str, required: tuple[str, ...]) -> None:
     for role in LOGIN_ROLES:
         if role in required and found.get(role) != "login":
             raise SnapshotError("The API role cannot log in.")
+    if _backend_name() == "native":
+        _assert_native_role_contract(environment)
 
 
 def drop_database(environment: str, database: str) -> None:
@@ -1177,12 +1169,12 @@ def _published_identity(environment: str, database: str) -> dict[str, object]:
           ON releases.release_id = active.release_id
         WHERE active.dataset_id = 'daily_external_factors_ph';
         """,
-        user="of_admin",
+        user=_data_role(),
     )
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout or "").strip()
         raise SnapshotError(detail or "The active release could not be read.")
-    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    lines = _result_lines(completed.stdout)
     if not lines:
         raise SnapshotError("There is no active published release.")
     if len(lines) != 1:
@@ -1231,6 +1223,7 @@ def _fact_rows(environment: str, database: str, release_id: str) -> list[dict]:
           WHERE release_id = {quoted}::uuid
         ) AS candidate;
         """,
+        user=_data_role(),
     )
     rows = json.loads(payload)
     if not isinstance(rows, list):
@@ -1252,11 +1245,14 @@ def _require_absent(environment: str, database: str) -> None:
 
 def _require_owners(environment: str, database: str) -> None:
     for name, owner in OWNERS.items():
+        schema, _, relation = name.partition(".")
         found = _text(
             environment,
             database,
-            "SELECT pg_get_userbyid(relowner) FROM pg_class "
-            f"WHERE oid = {sql_literal(name)}::regclass;",
+            "SELECT pg_get_userbyid(cls.relowner) FROM pg_class AS cls "
+            "JOIN pg_namespace AS namespace ON namespace.oid = cls.relnamespace "
+            f"WHERE namespace.nspname = {sql_literal(schema)} "
+            f"AND cls.relname = {sql_literal(relation)};",
         )
         if found != owner:
             raise SnapshotError("The candidate object owner does not match the source role.")
@@ -1278,10 +1274,15 @@ def _require_api_boundary(environment: str, database: str, release_id: str) -> N
 
 
 def _regclass(environment: str, database: str, name: str) -> str:
+    schema, _, relation = name.partition(".")
     return _text(
         environment,
         database,
-        f"SELECT COALESCE(to_regclass({sql_literal(name)})::text, 'absent');",
+        "SELECT COALESCE(string_agg(namespace.nspname || '.' || cls.relname, ','), 'absent') "
+        "FROM pg_class AS cls "
+        "JOIN pg_namespace AS namespace ON namespace.oid = cls.relnamespace "
+        f"WHERE namespace.nspname = {sql_literal(schema)} "
+        f"AND cls.relname = {sql_literal(relation)};",
     )
 
 
@@ -1292,7 +1293,7 @@ def _role_rows(environment: str) -> dict[str, str]:
         """
         SELECT rolname || '|' || CASE WHEN rolcanlogin THEN 'login' ELSE 'nologin' END
         FROM pg_roles
-        WHERE rolname IN ('of_migrate', 'of_publish', 'of_api')
+        WHERE rolname IN ('of_migrate', 'of_publish', 'of_api', 'of_restore')
         ORDER BY 1;
         """,
     )
@@ -1378,6 +1379,44 @@ def _pg_restore(environment: str, container_dump: str) -> subprocess.CompletedPr
     )
 
 
+def _restore_dump_file(environment: str, dump_path: Path) -> None:
+    """Load a dump into openfactors_candidate and fail closed on any error."""
+    if _backend_name() == "native":
+        try:
+            argv = db_backend.native_pg_restore_argv(CANDIDATE_DATABASE, dump_path.as_posix())
+        except db_backend.BackendError as exc:
+            raise SnapshotError(str(exc)) from exc
+        restored = subprocess.run(
+            argv,
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if restored.returncode != 0:
+            detail = (restored.stderr or restored.stdout or "").strip()
+            raise SnapshotError(detail or "The candidate restore failed.")
+        _apply_native_privileges(environment)
+        return
+    container_dump = _container_dump()
+    try:
+        _copy_to_container(environment, dump_path, container_dump)
+        restored = _pg_restore(environment, container_dump)
+        if restored.returncode != 0:
+            detail = (restored.stderr or restored.stdout or "").strip()
+            raise SnapshotError(detail or "The candidate restore failed.")
+    finally:
+        _remove_container_dump(environment, container_dump)
+
+
+def _apply_native_privileges(environment: str) -> None:
+    if _backend_name() != "native":
+        raise SnapshotError("Native privileges are applied only by the native backend.")
+    _assert_candidate_target(CANDIDATE_DATABASE)
+    sql_path = ROOT / "ops" / "sql" / "serving_restore_privileges.sql"
+    _admin(environment, CANDIDATE_DATABASE, sql_path.read_text(encoding="utf-8"))
+
+
 def _copy_from_container(environment: str, container_path: str, host_path: Path) -> None:
     completed = _run_compose(
         environment,
@@ -1414,12 +1453,159 @@ def _run_compose(environment: str, *args: str) -> subprocess.CompletedProcess[st
     )
 
 
+def _backend_name() -> str:
+    try:
+        return db_backend.backend_name()
+    except db_backend.BackendError as exc:
+        raise SnapshotError(str(exc)) from exc
+
+
+def _data_role() -> str:
+    if _backend_name() == "native":
+        return "of_publish"
+    return "of_admin"
+
+
+def _native_sql(user: str, sql: str) -> str:
+    if user in {"of_admin", "of_restore"}:
+        return sql
+    if user in {"of_api", "of_publish", "of_migrate"}:
+        return f"SET ROLE {user};\n{sql}"
+    raise SnapshotError("Native PostgreSQL refuses this role.")
+
+
+def _assert_accepted_environment(environment: str) -> None:
+    backend = _backend_name()
+    if environment == "serving":
+        if backend != "native":
+            raise SnapshotError("Serving restore uses the native backend.")
+        return
+    if environment == "staging":
+        if backend != "compose":
+            raise SnapshotError("Staging restore uses the compose backend.")
+        return
+    raise SnapshotError("Serving restore runs only on the staging cluster.")
+
+
+def _assert_operational_cluster(environment: str) -> None:
+    backend = _backend_name()
+    if environment == "serving":
+        if backend != "native":
+            raise SnapshotError("The serving cluster uses the native backend.")
+        return
+    require_environment(environment)
+    if backend != "compose":
+        raise SnapshotError("The compose backend serves only dev, test, and staging.")
+
+
+def _assert_generation_cluster(environment: str, *, purpose: str) -> None:
+    backend = _backend_name()
+    if environment == "serving":
+        if backend != "native":
+            raise SnapshotError("The serving cluster uses the native backend.")
+        return
+    if environment not in CUTOVER_CLUSTERS:
+        raise SnapshotError(f"{purpose} runs only on the test or staging cluster.")
+    if backend != "compose":
+        raise SnapshotError("The compose backend serves only dev, test, and staging.")
+    source = _source_database(environment)
+    if source not in {"openfactors_test", "openfactors_staging"} or source in CUTOVER_DATABASES:
+        raise SnapshotError("Cutover refuses this source database.")
+
+
+def _assert_native_role_contract(environment: str) -> None:
+    text = _admin(
+        environment,
+        "postgres",
+        """
+        SELECT rolname || '|'
+               || CASE WHEN rolsuper THEN 'yes' ELSE 'no' END || '|'
+               || CASE WHEN rolcreatedb THEN 'yes' ELSE 'no' END || '|'
+               || CASE WHEN rolcreaterole THEN 'yes' ELSE 'no' END || '|'
+               || CASE WHEN rolinherit THEN 'yes' ELSE 'no' END || '|'
+               || CASE WHEN rolcanlogin THEN 'yes' ELSE 'no' END
+        FROM pg_roles
+        WHERE rolname IN ('of_restore', 'of_migrate', 'of_publish', 'of_api')
+        ORDER BY rolname;
+        """,
+    )
+    expected = {
+        "of_api|no|no|no|no|yes",
+        "of_migrate|no|no|no|no|no",
+        "of_publish|no|no|no|no|no",
+        "of_restore|no|yes|no|no|yes",
+    }
+    found = {line.strip() for line in text.splitlines() if line.strip()}
+    if found != expected:
+        raise SnapshotError("The native role contract is not met.")
+    members = _admin(
+        environment,
+        "postgres",
+        """
+        SELECT role.rolname || '|'
+               || CASE WHEN membership.admin_option THEN 'admin' ELSE 'member' END
+        FROM pg_auth_members AS membership
+        JOIN pg_roles AS member ON member.oid = membership.member
+        JOIN pg_roles AS role ON role.oid = membership.roleid
+        WHERE member.rolname = 'of_restore'
+        ORDER BY 1;
+        """,
+    )
+    found_members = {line.strip() for line in members.splitlines() if line.strip()}
+    if found_members != {"of_api|member", "of_migrate|member", "of_publish|member"}:
+        raise SnapshotError("The native role contract is not met.")
+
+
+def _assert_native_database_shape(environment: str, database: str) -> None:
+    if _backend_name() != "native":
+        return
+    if database not in {CANDIDATE_DATABASE, SERVING_DATABASE, PREVIOUS_DATABASE}:
+        raise SnapshotError("Validation can read only a candidate or serving generation.")
+    owner = _text(
+        environment,
+        database,
+        "SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = current_database();",
+    )
+    if owner != "of_restore":
+        raise SnapshotError("The database is not owned by of_restore.")
+    unexpected = _admin(
+        environment,
+        database,
+        """
+        SELECT count(*)::text FROM (
+          SELECT pg_get_userbyid(cls.relowner) AS owner
+          FROM pg_class AS cls
+          JOIN pg_namespace AS namespace ON namespace.oid = cls.relnamespace
+          WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+            AND cls.relkind IN ('r', 'p', 'v', 'm', 'S', 'f', 'i', 'I')
+          UNION ALL
+          SELECT pg_get_userbyid(proc.proowner)
+          FROM pg_proc AS proc
+          JOIN pg_namespace AS namespace ON namespace.oid = proc.pronamespace
+          WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
+          UNION ALL
+          SELECT pg_get_userbyid(namespace.nspowner)
+          FROM pg_namespace AS namespace
+          WHERE namespace.nspname NOT IN
+            ('pg_catalog', 'information_schema', 'pg_toast', 'public')
+        ) AS owned
+        WHERE owner NOT IN ('of_migrate', 'of_publish');
+        """,
+    ).strip()
+    if unexpected != "0":
+        raise SnapshotError("The database has an object owned by an unexpected role.")
+
+
 def _dataset_version() -> str:
     version = str(load_json(CONTRACT_PATH)["dataset_version"])
     return version
 
 
 def _environment_database(environment: str) -> str:
+    if environment == "serving":
+        raise SnapshotError("The serving cluster has no source database.")
+    if _backend_name() != "compose":
+        raise SnapshotError("The compose backend serves only dev, test, and staging.")
     return str(require_environment(environment)["database"])
 
 
@@ -1428,12 +1614,23 @@ def _hex64(value: str, label: str) -> None:
         raise SnapshotError(f"The snapshot manifest {label} is not a SHA-256 hex digest.")
 
 
+_PSQL_TAGS = frozenset({"SET", "RESET", "BEGIN", "COMMIT", "ROLLBACK", "DO"})
+
+
+def _result_lines(stdout: str) -> list[str]:
+    return [
+        line.strip()
+        for line in stdout.splitlines()
+        if line.strip() and line.strip() not in _PSQL_TAGS
+    ]
+
+
 def _text(environment: str, database: str, sql: str, *, user: str = "of_admin") -> str:
     completed = _run(environment, database, sql, user=user)
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout or "").strip()
         raise SnapshotError(detail or "The snapshot query failed.")
-    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    lines = _result_lines(completed.stdout)
     if len(lines) != 1:
         raise SnapshotError("The snapshot query did not return one row.")
     return lines[0]
@@ -1467,8 +1664,13 @@ class _generation_lock:
         self._token: contextvars.Token[_generation_lock | None] | None = None
 
     def __enter__(self) -> _generation_lock:
-        self._process = subprocess.Popen(
-            [
+        if _backend_name() == "native":
+            try:
+                argv = db_backend.native_psql_argv("postgres", interactive=True)
+            except db_backend.BackendError as exc:
+                raise SnapshotError(str(exc)) from exc
+        else:
+            argv = [
                 *compose_base(self.environment),
                 "exec",
                 "-T",
@@ -1485,7 +1687,9 @@ class _generation_lock:
                 "--tuples-only",
                 "--set",
                 "ON_ERROR_STOP=1",
-            ],
+            ]
+        self._process = subprocess.Popen(
+            argv,
             cwd=ROOT,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -1499,7 +1703,10 @@ class _generation_lock:
             ") THEN 'locked' ELSE 'busy' END;\n"
         )
         self._process.stdin.flush()
-        line = _read_process_line(self._process)
+        line = _read_process_line(
+            self._process,
+            timeout=30 if _backend_name() == "native" else 10,
+        )
         if line.strip() != "locked":
             busy = line.strip() == "busy"
             self._close()
@@ -1509,7 +1716,10 @@ class _generation_lock:
         assert self._process.stdin is not None
         self._process.stdin.write("SELECT pg_backend_pid();\n")
         self._process.stdin.flush()
-        pid_line = _read_process_line(self._process).strip()
+        pid_line = _read_process_line(
+            self._process,
+            timeout=30 if _backend_name() == "native" else 10,
+        ).strip()
         if not pid_line.isdigit():
             self._close()
             raise SnapshotError("The generation lock could not be acquired.")
@@ -1643,6 +1853,19 @@ def _run(
     *,
     user: str,
 ) -> subprocess.CompletedProcess[str]:
+    if _backend_name() == "native":
+        try:
+            argv = db_backend.native_psql_argv(database, interactive=False)
+        except db_backend.BackendError as exc:
+            raise SnapshotError(str(exc)) from exc
+        return subprocess.run(
+            argv,
+            cwd=ROOT,
+            input=_native_sql(user, sql),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
     return subprocess.run(
         [
             *compose_base(environment),
@@ -1697,11 +1920,7 @@ def _confirm_release(value: str) -> str:
 
 
 def _assert_cutover_cluster(environment: str) -> None:
-    if environment not in CUTOVER_CLUSTERS:
-        raise SnapshotError("Cutover runs only on the test or staging cluster.")
-    source = _source_database(environment)
-    if source not in {"openfactors_test", "openfactors_staging"} or source in CUTOVER_DATABASES:
-        raise SnapshotError("Cutover refuses this source database.")
+    _assert_generation_cluster(environment, purpose="Cutover")
 
 
 def _assert_cutover_name(database: str) -> None:
@@ -1743,6 +1962,7 @@ def _revalidate_database(
     _require_objects(environment, database)
     _require_absent(environment, database)
     _require_owners(environment, database)
+    _assert_native_database_shape(environment, database)
     _require_api_boundary(environment, database, str(identity["release_id"]))
     return identity
 
@@ -1952,7 +2172,7 @@ def _refuse_demoted_candidate(environment: str) -> None:
         raise SnapshotError(
             "The candidate is a preserved serving generation, not a new publication."
         )
-    if environment == "staging":
+    if environment in {"staging", "serving"}:
         if comment != _AUTHENTICATED_MARK:
             raise SnapshotError("The candidate was not created by an authenticated restore.")
         return
@@ -1974,8 +2194,7 @@ def _cleanup_report(environment: str, target: str, confirm_release: str) -> dict
     """Decide whether one generation may be dropped. This does not drop it."""
     _assert_cleanup_target(target)
     release_id = _confirm_release(confirm_release)
-    if environment not in CUTOVER_CLUSTERS:
-        raise SnapshotError("Cleanup runs only on the test or staging cluster.")
+    _assert_generation_cluster(environment, purpose="Cleanup")
     catalog = _cutover_catalog(environment)
     state = catalog[target]
     connections = _target_connections(environment, target) if state is not None else 0
