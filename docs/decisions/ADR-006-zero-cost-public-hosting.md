@@ -8,7 +8,7 @@
 | Number | ADR-006. ADR-002 is unused in this repository and is not taken. ADR-005 is unchanged. |
 | Public release | No-go. No host is selected. No public URL is created. |
 
-This record compares provider terms. It does not deploy, does not set a date span or a rate number, and does not state a recovery-time target.
+This record compares provider terms on 2026-10-26 under the USD 0 cap that ADR-003 has since superseded. ADR-003 now sets a USD 10 recurring ceiling. Current recurring spend remains USD 0. This comparison does not select a host, does not authorize a purchase, does not set a date span or a rate number, and does not state a recovery-time target. The date span is ADR-009. The offsite RPO is ADR-004.
 
 ## What this repository actually runs
 

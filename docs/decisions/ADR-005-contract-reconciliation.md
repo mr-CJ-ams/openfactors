@@ -28,6 +28,8 @@ PRD controls scope. LLD controls column meaning. The API specification and OpenA
 
 No date-span maximum and no rate-limit numbers. Inventing them here would pretend a benchmark happened. They stay open until a later limits ADR. Public launch still waits on them.
 
+That paragraph is the 2026-10-24 baseline. ADR-008 later set a provisional request window. ADR-009 adopts a 366-day inclusive span, and the factor query and the export enforce it. The local acceptance command still reports this file's query limits as unset, because the rate window is provisional.
+
 ## Acceptance
 
 | Role | Result |

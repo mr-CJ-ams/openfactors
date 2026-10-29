@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | Decision | The 366-day span is reconsidered. Page size and export caps stay as they are. |
-| Status | Reconsidered on 2026-10-26. Not approved. Not enforced for the date span. The request window is provisional until staging measurements. |
+| Status | Reconsidered on 2026-10-26. Not approved on that date. Not enforced on that date. ADR-009 adopts the 366-day maximum, and the factor query and the export enforce it. The request window is provisional until staging measurements. |
 | Number | ADR-008. ADR-005 is unchanged. |
 | Public release | No-go. This record does not deploy, and it does not mark a release go. |
 
-The 366-day maximum was an owner-selected initial policy limit. It is not a measured benchmark, and it is not enforced. A one-year cap would cut the historical range this dataset is meant to serve. This record leaves that cap unimplemented and checks whether one location's full stored history already fits the existing page size and export caps.
+The 366-day proposal is reconsidered in this record. On 2026-10-26 it was an owner-selected initial policy limit, not a measured benchmark, and it was not enforced. A one-year cap cuts a single request below one city's full stored history. Callers retrieve a longer history as more than one request, as ADR-009 specifies. This record checks whether one location's full stored history already fits the existing page size and export caps. The factor query and the export now reject a span over 366 inclusive dates.
 
 The earlier proposal was 60 requests per minute per client IP. The implemented window is 60 requests per rolling 60 seconds for a resolved non-loopback client. It is provisional until staging measurements. Loopback stays unlimited. `Forwarded` and `X-Forwarded-For` are ignored unless the TCP peer is an explicitly configured proxy. The numbers and the rationale are in `docs/decisions/api-resource-limits.md`. This is not a hosted load profile, and it does not approve public hosting.
 
@@ -64,20 +64,20 @@ Run this on the local dev database. Record the figures. Do not set a pass thresh
 
 | Limit | Decision |
 |---|---|
-| Inclusive query date span | The 366-day proposal is reconsidered. It is not enforced. A query may still use any `start_date` on or before `end_date`. |
+| Inclusive query date span | The 366-day proposal is reconsidered above. ADR-009 adopts a maximum of 366 inclusive dates. The factor query and the export enforce it. |
 | Public request rate | 60 requests per rolling 60 seconds for a resolved non-loopback client. Loopback is unlimited. Provisional until staging measurements. |
 | Factor page size | Maximum 1,000 rows. Default 100. Unchanged. |
 | Export caps | 100,000 rows and 50,000,000 bytes. Unchanged. |
 
-OpenAPI, the API guide, and the download form still say that no date-span maximum is set. That matches the code.
+The API guide states the 366-day maximum. The download form shows the same span message and stays HTML. OpenAPI still lists 422 for an invalid filter and does not repeat the span sentence.
 
 ## Required follow-up, not started
 
-OF-001 through OF-049 stay in progress. No ticket is marked done. No 366-day check is added.
+OF-001 through OF-049 stay in progress. No ticket is marked done. The 366-day check from ADR-009 is in the factor query and the export.
 
 | Follow-up | Existing ticket | Work |
 |---|---|---|
-| Leave the date span uncapped unless a later record chooses a different bound from a repeated measurement. | OF-042 | Not started. The check above is the local procedure. |
+| Enforce the 366-day inclusive span from ADR-009. | OF-042 | Enforced on the factor query and the export. The measurement procedure above is unchanged. |
 | Keep page size 1 to 1,000 and the export ceilings at 100,000 rows and 50,000,000 bytes. | OF-033 | Already enforced. |
 | Count the TCP peer. Do not count loopback. Ignore forwarding headers unless that peer is configured. | OF-041 | Provisional. Not a staging measurement. |
 | Run the QA sheet before any case leaves "Not run". | OF-043 | Not started. |

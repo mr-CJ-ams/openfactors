@@ -1,5 +1,7 @@
 # OpenFactors — API Specification (Contract-First Design)
 
+> Date-span note, 2026-10-29: ADR-009 adopts a maximum of 366 inclusive calendar days. The factor query and the export reject a longer span with 422 `INVALID_DATE_RANGE`. Sentences below that leave the span unset describe the earlier contract.
+
 > **Status:** Draft v1.0 | **Owner:** Data Platform Engineering | **Date:** 2026-10-23  
 > **Authoritative inputs:** PRD v1.0, HLD v1.0, Data Models & Data Contracts LLD v1.0  
 > **Machine-readable companion:** `OpenFactors_OpenAPI_v1.yaml` (OpenAPI 3.1.0)  
@@ -212,9 +214,9 @@ Error codes are stable machine-readable identifiers; error messages are human-re
 
 | Decision | Current position | Must resolve before |
 |---|---|---|
-| ADR-API-01 | Max permitted date span not yet approved. ADR-008 reconsiders a 366-day span and does not enforce it. | Public launch |
+| ADR-API-01 | ADR-009 adopts a maximum of 366 inclusive calendar days. The factor query and the export enforce it. | Public launch |
 | ADR-API-02 | Export 100k rows / 50MB provisional; benchmark | Public launch |
-| ADR-API-03 | IP rate limit and bandwidth quotas TBD. ADR-008 proposes 60 requests per minute per client IP, not a bandwidth quota, and does not enforce it. | Public launch |
+| ADR-API-03 | ADR-008 records 60 requests per rolling 60 seconds for a non-loopback client. That window is provisional until staging measurements. Bandwidth quotas are unset. | Public launch |
 | ADR-API-04 | Pilot locations are the five ids in ADR-001 | Seeded release uses those ids |
 | ADR-API-05 | Sources approved for a non-commercial MVP in the source registry | Any public release still needs the registry to stay current |
 | ADR-API-06 | Retention and withdrawal are ADR-004 | Reproducibility on this computer only |

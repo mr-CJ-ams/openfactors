@@ -153,4 +153,4 @@ The pin file is the trust root. It is chosen by the operator on the command line
 
 Accepted files are one disk. They are not a backup of `openfactors_dev`, and they are not an offsite copy.
 
-ADR-003 remains USD 0 per month. The USD 10 hosting ceiling is a later decision. No VPS is purchased. Public Beta v0.1 remains no-go.
+ADR-003 sets a USD 10 recurring ceiling. Current recurring spend remains USD 0. No VPS is purchased. The conditional acceptance of the trust limits on this page is ADR-010. Production verification of those limits is still open. Public Beta v0.1 remains no-go.

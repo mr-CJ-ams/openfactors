@@ -5,7 +5,7 @@
   "narrative": "docs/decisions/ADR-004-retention-and-withdrawal.md",
   "status": "working_baseline",
   "adopted_on": "2026-10-24",
-  "applies_while": "monthly cost cap is USD 0 and the environment is local Docker only",
+  "applies_while": "retention rules continue under the ADR-003 ceiling of USD 10 per month; current recurring spend is USD 0; the only running environment is local Docker",
   "raw_files": {
     "mode": "until_source_withdrawn",
     "automatic_expiry_days": null,
@@ -39,6 +39,8 @@
   "copies": {
     "location": "this computer only",
     "offsite_backup": false,
-    "disk_loss": "reingest; no backup to restore"
+    "offsite_rpo_hours": 24,
+    "offsite_rpo_adopted_on": "2026-10-29",
+    "disk_loss": "reingest until a verified offsite copy exists; ADR-004"
   }
 }

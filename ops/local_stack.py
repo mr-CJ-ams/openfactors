@@ -1,7 +1,8 @@
 """Local Docker environments for OF-007.
 
 dev, test, and staging are separate Compose projects on this computer.
-Production is intentionally absent while the cost cap is USD 0.
+The approved recurring ceiling is USD 10 per month. Actual recurring spend is USD 0.
+Production is not provisioned, and this module does not deploy it.
 """
 
 from __future__ import annotations

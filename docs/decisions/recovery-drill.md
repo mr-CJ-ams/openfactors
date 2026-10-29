@@ -1,6 +1,6 @@
 # Recovery drill
 
-These procedures run on this computer. They are not HTTP routes. There is no offsite copy. Hosted recovery-time targets are unset. A measured duration from one local drill is not an approved target.
+These procedures run on this computer. They are not HTTP routes. There is no offsite copy. ADR-004 adopts a 24-hour offsite recovery point objective. This drill does not measure that copy. `rpo_target_seconds` and `rto_target_seconds` stay null here. A measured duration from one local drill is not a hosted recovery time.
 
 ## Database restore
 

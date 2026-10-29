@@ -50,7 +50,7 @@ curl "http://127.0.0.1:8000/openapi.json"
 
 - One `location_id` per factor or export request. An unknown location is 404 with `That location is not available.`
 - `start_date` and `end_date` are inclusive ISO dates. `start_date` must be on or before `end_date`.
-- No date-span maximum is set. A loopback client is not rate limited. Any other client is limited to 60 requests per 60 seconds. That limit is provisional until staging measurements.
+- The inclusive span is at most 366 calendar days. A longer span is 422 `INVALID_DATE_RANGE` with `start_date and end_date span more than 366 calendar days.` A longer history is more than one request. A loopback client is not rate limited. Any other client is limited to 60 requests per 60 seconds. That limit is provisional until staging measurements.
 - Factor `page` defaults to 1 and must be at least 1. `page_size` defaults to 100 and must be from 1 to 1000.
 - An export above 100,000 rows or 50,000,000 bytes is 422 `EXPORT_LIMIT`. The message says to split the date interval. No file bytes are returned.
 - `format` is `csv` or `parquet`.
@@ -97,7 +97,7 @@ Errors use one JSON object: `error.code`, `error.message`, and `error.trace_id`.
 - 400 means the query string is malformed.
 - 404 means the location or the release is not available. An unknown release and a withdrawn release use the same message: `That release is not available.`
 - 405 means the method is not GET. `Allow` is `GET`.
-- 422 means a filter, a page, a format, an unknown parameter, or an export cap is invalid. An inverted range returns `INVALID_DATE_RANGE` and `start_date must be on or before end_date`.
+- 422 means a filter, a page, a format, an unknown parameter, or an export cap is invalid. An inverted range returns `INVALID_DATE_RANGE` and `start_date must be on or before end_date`. A span over 366 inclusive dates returns the same code and `start_date and end_date span more than 366 calendar days.`
 - 429 means a configured limiter refused the request. The response includes `Retry-After`. No quota number is configured here.
 - 500 includes a trace id.
 - 503 means the catalog or the query could not be read.

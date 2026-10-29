@@ -4,7 +4,7 @@
 
 50 MB in this ceiling is 50,000,000 bytes. A file of exactly 100,000 rows and exactly 50,000,000 bytes is still sent. One more row, or one more byte, is refused.
 
-No date-span maximum is set. No request-quota number is set. The export route uses the same limiter as the other routes: when no limiter is configured, the request proceeds; when a limiter returns a non-negative number of seconds, the response is `429` with `Retry-After`.
+ADR-009 limits one request to 366 inclusive calendar days. This export path rejects a longer span with 422 `INVALID_DATE_RANGE` before it builds a file. No separate request-quota number is set here. The export route uses the same limiter as the other routes: when no limiter is configured, the request proceeds; when a limiter returns a non-negative number of seconds, the response is `429` with `Retry-After`.
 
 A successful file response adds `ETag`, a quoted SHA-256 of those file bytes. `Link` points at the dataset dictionary for the same release and at each approved source URL. The dictionary and those URLs carry the attribution and license text.
 

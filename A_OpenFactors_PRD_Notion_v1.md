@@ -1,5 +1,7 @@
 # OpenFactors — Product Requirements Document (PRD)
 
+> Budget note, 2026-10-29: the adopted recurring ceiling is USD 10 per month in `docs/decisions/ADR-003-budget-and-ownership.md`. Current recurring spend is USD 0. A purchase needs a separate approval. Sentences below that say USD 0 are the 2026-10-24 baseline.
+
 > **Status:** Draft for review  
 > **Version:** 1.0  
 > **Date:** 23 October 2026  
@@ -264,10 +266,10 @@ Become a trustworthy, developer-friendly source of contextual external factors f
 | D-02 | How many historical years? | Start `2018-01-01`, confirmed against Open-Meteo ERA5 | Working baseline 2026-10-24. Raw responses through 2026-10-25 stored on 2026-10-25. Six trailing days are null. |
 | D-03 | What holiday authority? | Official Gazette proclamations; national regular and special non-working days | Working baseline 2026-10-24. Source registry. Years 2018 through 2026 transcribed on 2026-10-25. |
 | D-04 | Anonymous vs API-key access? | Anonymous read-only, no accounts | Working baseline 2026-10-24. ADR-003. Rate limits still unset. |
-| D-05 | Public hosting budget? | USD 0 per month, local Docker only | Working baseline 2026-10-24. ADR-003. |
+| D-05 | Public hosting budget? | USD 10 per month ceiling. Current spend USD 0. Local Docker until a separate purchase approval. | Adopted 2026-10-29. ADR-003. The 2026-10-24 cap was USD 0. |
 | D-06 | Which raw data can be redistributed? | Open-Meteo ERA5 under CC BY 4.0 for a non-commercial product; transcribed Official Gazette holidays | Working baseline 2026-10-24. Source registry. |
 | D-07 | Which orchestrator at launch? | Local scheduled or manual command. Learning Airflow is not the production scheduler. | Working baseline 2026-10-24. ADR-003. Learning track ADR-007. |
-| D-08 | How are revisions represented? | New `release_id` for content changes. Keep every published release while the cap is USD 0. Raw files stay until the source is withdrawn. | Working baseline 2026-10-24. ADR-004. |
+| D-08 | How are revisions represented? | New `release_id` for content changes. Keep every published release. Raw files stay until the source is withdrawn. Offsite RPO is 24 hours. No offsite copy exists yet. | Working baseline 2026-10-24, RPO adopted 2026-10-29. ADR-004. |
 
 ## 18. Related engineering artifacts
 

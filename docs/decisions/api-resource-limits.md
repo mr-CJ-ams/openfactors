@@ -14,6 +14,6 @@ These limits protect one API process. They are provisional until staging measure
 | Socket timeout | 30 seconds on the accepted connection. | A client that stops sending cannot occupy the API thread forever. This is outside the SQL timeout. |
 | Export cleanup | On catalog startup, delete only recognized unfinished files. | A file named `.{filename}.partial` or `.{filename}.manifest.partial` inside a UUID folder of the configured export directory is unfinished. Completed files, other names, other directories, and symbolic links stay. |
 
-A date-span maximum is still not set.
+ADR-009 limits one request to 366 inclusive calendar days. The factor query and the export reject a longer span with 422 `INVALID_DATE_RANGE`.
 
 API password files live in a private directory, mode 0700 on Unix and owned by the API process user. That process holds an exclusive lock before startup removes recognized `openfactors-api-*.pgpass` files, so another process cannot delete a live password file. The system temporary directory is not scanned. Symbolic links are not followed.

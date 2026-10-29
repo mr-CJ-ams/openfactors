@@ -28,7 +28,9 @@ def test_repository_release_is_not_deployed() -> None:
     assert "signatures" in report["open_items"]
     assert report["rollback"]["public_rollback"] is False
     assert report["rollback"]["local_procedure"] == "docs/decisions/recovery-drill.md"
-    assert report["ownership"]["cost_cap_usd"] == 0
+    assert report["ownership"]["approved_recurring_ceiling_usd"] == 10
+    assert report["ownership"]["actual_recurring_spend_usd"] == 0
+    assert "cost_cap_usd" not in report["ownership"]
     assert report["ownership"]["operator"] == "Founder / Product Lead"
     assert report["ownership"]["paging"] is False
     assert report["monitoring"]["grafana"] is False
@@ -128,8 +130,16 @@ def test_limits_proposal_does_not_approve_or_enforce() -> None:
             "end_date": ["2025-01-01"],
         }
     )
-    assert "error" not in long_span
-    assert long_span["page_size"] == 100
+    assert long_span["error"]["code"] == "INVALID_DATE_RANGE"
+    allowed = _filters(
+        {
+            "location_id": ["ph-manila"],
+            "start_date": ["2024-01-01"],
+            "end_date": ["2024-12-31"],
+        }
+    )
+    assert "error" not in allowed
+    assert allowed["page_size"] == 100
 
 
 def test_release_command_prints_the_refusal() -> None:
