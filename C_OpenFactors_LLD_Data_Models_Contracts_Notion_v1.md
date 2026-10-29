@@ -1,5 +1,7 @@
 # OpenFactors — Data Models & Data Contracts (LLD)
 
+> Budget note, 2026-10-29: the adopted recurring ceiling is USD 10 per month in `docs/decisions/ADR-003-budget-and-ownership.md`. Current recurring spend is USD 0. The offsite recovery point objective is 24 hours in `docs/decisions/ADR-004-retention-and-withdrawal.md`. No offsite copy exists yet. Sentences below that say USD 0 are the 2026-10-24 baseline.
+
 > **Document ID:** OF-LLD-001  
 > **Version:** 1.0 — proposed, review required  
 > **Date:** 23 October 2026  
@@ -554,11 +556,11 @@ These inherit HLD §18. **No production/public redistribution until blockers are
 | D-02 | Historical date range | Date spine, backfill size, coverage | Start `2018-01-01` confirmed for Open-Meteo ERA5. Raw responses through 2026-10-25 are stored. Six trailing days are null. |
 | D-03 | Holiday authority/categories | Holiday truth rules | Working baseline in the source registry. Years 2018 through 2026 are transcribed from Official Gazette proclamations. |
 | D-04 | Anonymous access/key | API abuse controls | Anonymous read-only in ADR-003. Numeric rate limits still open. |
-| D-05 | Hosting and cost cap | Partitioning, retention, availability | USD 0 and local Docker only, ADR-003. |
+| D-05 | Hosting and cost cap | Partitioning, retention, availability | USD 10 per month ceiling in ADR-003. Current spend USD 0. Local Docker until a separate purchase approval. |
 | D-06 | Weather and holiday redistribution | **Hard public release blocker** | Working baseline in `docs/decisions/source-registry.md`. Non-commercial only. |
 | D-07 | Scheduler choice | Checkpoint/orchestration implementation | Local command in ADR-003. Learning Airflow is ADR-007 and is not the production scheduler. |
 | D-08 | Content release retention | Reproducibility promise | Working baseline in ADR-004. `retention_mode = until_source_withdrawn` is now in the source-registry DDL. |
-| A-09 | Backup RPO/RTO | Disaster recovery | No offsite copy at USD 0, stated in ADR-004. Hosted restore targets remain unset. |
+| A-09 | Backup RPO/RTO | Disaster recovery | ADR-004 adopts a 24-hour offsite RPO. No offsite copy exists yet. A hosted recovery time remains unset. |
 | A-10 | Raw/log retention/privacy | Storage policy and compliance | Raw-file mode is in ADR-004. Log retention and privacy review remain open. |
 | A-11 | Page/export limits | Public performance | Benchmarks and accepted limits |
 | A-12 | Full PRD field contract | **Resolved by §2 and §7**, pending tests | Automated information-schema test passes |

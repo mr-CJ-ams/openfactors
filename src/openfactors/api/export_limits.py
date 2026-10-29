@@ -1,7 +1,8 @@
 """Provisional export ceilings, the attribution manifest, and a finished file.
 
 100,000 rows and 50,000,000 bytes are the ceilings already stated in ADR-005.
-No date-span maximum and no request-quota number are chosen here. A file is
+A span over 366 inclusive dates is refused by the shared date check before a file
+is built. No separate request-quota number is chosen here. A file is
 renamed into place only after its attribution manifest is complete. A failed
 publish deletes both.
 """

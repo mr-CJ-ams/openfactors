@@ -34,7 +34,8 @@ def test_guide_documents_routes_limits_and_has_no_credentials() -> None:
     assert "100,000" in text
     assert "50,000,000" in text
     assert "1 to 1000" in text
-    assert "No date-span maximum is set." in text
+    assert "366 calendar days" in text
+    assert "INVALID_DATE_RANGE" in text
     assert "A loopback client is not rate limited." in text
     assert "60 requests per 60 seconds" in text
     assert "provisional until staging measurements" in text

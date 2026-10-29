@@ -39,7 +39,8 @@ def build_release(acceptance: dict) -> dict:
             "public_rollback": False,
         },
         "ownership": {
-            "cost_cap_usd": 0,
+            "approved_recurring_ceiling_usd": 10,
+            "actual_recurring_spend_usd": 0,
             "operator": _OPERATOR,
             "paging": False,
             "alert": "A failed local run leaves a log line and a failed run record.",

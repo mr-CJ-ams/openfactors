@@ -29,6 +29,8 @@ _RELEASE_UNAVAILABLE = "That release is not available."
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _INTEGER = re.compile(r"^(0|[1-9][0-9]*)$")
 _MAX_OFFSET = 2**63 - 1
+_MAX_INCLUSIVE_DAYS = 366
+_SPAN_MESSAGE = "start_date and end_date span more than 366 calendar days."
 _REQUIRED = ("location_id", "start_date", "end_date")
 _ALLOWED = {"location_id", "start_date", "end_date", "release_id", "page", "page_size"}
 FactorLoader = Callable[..., dict]
@@ -259,6 +261,12 @@ def _filters(parameters: dict) -> dict:
         return _error(
             "INVALID_DATE_RANGE",
             "start_date must be on or before end_date",
+            {"field": "start_date"},
+        )
+    if (end - start).days + 1 > _MAX_INCLUSIVE_DAYS:
+        return _error(
+            "INVALID_DATE_RANGE",
+            _SPAN_MESSAGE,
             {"field": "start_date"},
         )
     pin, invalid_pin = _release_pin(parameters.get("release_id"))

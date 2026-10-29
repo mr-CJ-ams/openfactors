@@ -5,7 +5,7 @@
 | Decision | D-08 |
 | Ticket | OF-004 |
 | Status | Working baseline, adopted 2026-10-24 |
-| Applies while | Monthly cost cap is USD 0 and the only environment is local Docker |
+| Applies while | Retention rules continue under the ADR-003 ceiling. The only running environment is local Docker. |
 | Machine copy | `contracts/fixtures/retention_policy.json` |
 | Public cache | None. A CDN or hosted copy needs this ADR revised before it is turned on. |
 
@@ -19,7 +19,7 @@ The source-registry table uses `retention_mode`. `until_source_withdrawn` requir
 
 ## Successful releases
 
-Every release that reached `published` stays queryable by its `release_id` while the cost cap is USD 0. Nothing expires for age. `release_id` is never reused.
+Every release that reached `published` stays queryable by its `release_id`. Nothing expires for age. `release_id` is never reused. The 2026-10-24 text said this lasted while the cap was USD 0. The rule itself is unchanged under the USD 10 ceiling.
 
 A new `release_id` is created when published values change. `dataset_version` changes only when a column's type, order, nullability, or meaning changes. Those are different identifiers. A schema break is a new major `dataset_version` and is outside this baseline.
 
@@ -40,20 +40,29 @@ There is no public cache at this cap, so there is no second purge window. Licens
 
 Suspending `open-meteo-era5` or `ph-official-gazette` withdraws the daily dataset releases that include that source. The product does not keep serving a half-filled table.
 
-## The only copy
+## The only copy, and the adopted RPO
 
-Raw files and releases exist on this computer. There is no offsite backup inside the USD 0 cap. Losing the disk loses the copy. Rebuilding means ingesting again. Recovery-time targets for a hosted restore stay open.
+Raw files and releases exist on this computer. No offsite backup has been stored. Losing the disk still loses the only copy, and rebuilding still means ingesting again. `contracts/fixtures/retention_policy.json` still records `offsite_backup: false`. That operational fact stays until a copy exists outside this computer and outside the future serving disk.
+
+The product owner adopted a recovery point objective on 2026-10-29. The newest successful verified offsite backup may be at most 24 hours old. 24 hours is 86,400 seconds. This is an RPO. It is not a recovery time objective. The local drill still prints `rpo_target_seconds` and `rto_target_seconds` as null, because those fields record a completed offsite measurement and none exists.
+
+Freshness is the age of the latest backup that was written to the offsite location and then verified, measured in UTC from that verification time to the moment of the check. Verification is a recorded checksum match for the raw archive and a recorded restore of the signed snapshot under a new database name. A backup that was copied and not verified does not start the 24-hour clock.
+
+The backup scope is the raw archive and the signed published snapshot: the dump, its manifest, and its signature. The on-cluster previous generation is the same machine and does not meet this scope.
+
+When no verified offsite backup exists, or when its age is over 24 hours, the operator writes a visible log line and a failed backup record. Paging, email, and SMS are not part of this response. Until that backup is inside 24 hours, launch checklist items D1, D2, and D4 stay open, and Public Beta v0.1 stays no-go. A recovery time for a hosted restore is still unset.
 
 ## Tabletop
 
-OF-025 executes the source-suspension case in the local test suite: the source is suspended, published releases that include it are withdrawn, their local export files are deleted, and those release ids resolve as 404. There is still no public cache. OF-040 executes the local recovery drill: an isolated database restore, a raw-object restore checked by SHA-256, a release rollback, and recovery of a run that is still running. A failed run stays failed. Hosted recovery-time targets remain unset. This page is not a signed hosted-restore record.
+OF-025 executes the source-suspension case in the local test suite: the source is suspended, published releases that include it are withdrawn, their local export files are deleted, and those release ids resolve as 404. There is still no public cache. OF-040 executes the local recovery drill: an isolated database restore, a raw-object restore checked by SHA-256, a release rollback, and recovery of a run that is still running. A failed run stays failed. The 24-hour RPO above is the adopted policy. The local drill has not measured an offsite copy, and a hosted recovery time remains unset. This page is not a signed hosted-restore record.
 
 | Case | Expected result |
 |---|---|
 | Quality gate fails | Candidate `rejected`. Active pointer unchanged. Last published release still readable. |
 | Free Open-Meteo use must stop | Source `suspended`. Every release that includes it is `withdrawn`. Active pointer empty or moved to a release that does not include it. Local exports for withdrawn ids deleted. Those ids return 404. |
 | Proclamation date corrected | New `release_id` with the corrected holiday. The previous release id still answers unless this ADR is changed to withdraw it. |
-| Disk lost | No second copy. Restore is a new ingestion, not a backup return. |
+| Disk lost, before an offsite copy exists | No second copy. Restore is a new ingestion, not a backup return. |
+| Disk lost, after D1 and D2 pass | Restore the verified offsite snapshot. The adopted RPO is 24 hours. |
 
 ## Acceptance
 

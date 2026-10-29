@@ -23,7 +23,7 @@ from openfactors.api.catalog import (
     _split_target,
 )
 from openfactors.api.csv_export import EXPORT_PATH
-from openfactors.api.factors import _iso_date, _single
+from openfactors.api.factors import _MAX_INCLUSIVE_DAYS, _SPAN_MESSAGE, _iso_date, _single
 from openfactors.api.page_chrome import document
 
 PAGE_PATH = "/datasets/daily-external-factors-ph"
@@ -149,6 +149,8 @@ def _errors(parameters: dict, locations: set[str]) -> dict[str, str]:
     end = _date_error("end_date", parameters.get("end_date"), errors)
     if start is not None and end is not None and start > end:
         errors["end_date"] = _RANGE
+    elif start is not None and end is not None and (end - start).days + 1 > _MAX_INCLUSIVE_DAYS:
+        errors["end_date"] = _SPAN_MESSAGE
     _format_error(parameters.get("format"), errors)
     _release_error(parameters.get("release_id"), errors)
     return errors

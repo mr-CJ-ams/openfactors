@@ -4,24 +4,41 @@
 |---|---|
 | Decisions | D-05 budget and ownership, D-04 anonymous access, D-07 scheduler |
 | Ticket | OF-003 |
-| Status | Working baseline, adopted 2026-10-24 |
+| Status | Cap revised on 2026-10-29. The 2026-10-24 baseline is kept below. |
 | Public hosting | Not approved |
 
 ## Budget and owner
 
+### Ceiling adopted on 2026-10-29
+
 | Item | Decision |
 |---|---|
-| Monthly cost cap | USD 0 |
-| Who pays | Nobody. No cloud bill is authorized. |
+| Monthly recurring ceiling | USD 10 |
+| What the ceiling includes | VPS hosting, independent offsite backup storage, monitoring, and any other required recurring service |
+| Current recurring spend | USD 0 |
+| Purchase | A separate explicit approval is required before any purchase, account, or payment. Before a purchase is proposed, verify the current price, tax, renewal price, payment terms, and any overage. A price copied from an older page is not a current quote. |
+| Who pays | The repository owner, only after that separate approval. |
 | Operator | Founder / Product Lead, the person who owns this repository. No personal legal name is recorded here. |
 | On-call | That same person, when they are at the machine. There is no 24/7 rotation and no paging service. |
-| Alert | A failed local run must leave a visible log line and a failed run record. No email or SMS alert is in budget. |
-| Environments | Local Docker Compose only. dev, test, and staging are separate projects on this computer (`ops/local_stack.py`). Hosted staging and production are not provisioned. |
+| Alert | A failed local run must leave a visible log line and a failed run record. No email or SMS alert is in the current spend. A later monitor has to fit inside the USD 10 ceiling. |
+| Environments | Local Docker Compose is the only running environment. dev, test, and staging are separate projects on this computer (`ops/local_stack.py`). Hosted staging and production are not provisioned. |
 | Load assumption | One local reader, one `location_id`, a 31-day window, `page_size` 100. OF-042 records that sample on this computer and does not claim the PRD p95 target. A hosted profile is still not signed off. |
 
-GitHub Actions may be used later only while it stays inside this USD 0 cap. A paid runner, a hosted database, or a public URL is a new ADR that raises the cap first.
+The ceiling is a maximum. It does not select a host and it does not start a public URL. Public Beta v0.1 stays no-go until the launch checklist is signed.
 
-OF-006, the repository skeleton, may start on this baseline. Ingestion of real source data still waits on the source registry and on OF-008.
+GitHub Actions stays on the free hosted runner. A paid runner has to fit inside the same USD 10 ceiling and needs the same separate purchase approval.
+
+### Cap adopted on 2026-10-24, superseded
+
+| Item | Decision then |
+|---|---|
+| Monthly cost cap | USD 0 |
+| Who pays | Nobody. No cloud bill was authorized. |
+| Environments | Local Docker Compose only. |
+
+That USD 0 cap is no longer the ceiling. It remains the record of what was adopted on 2026-10-24, and it remains the actual spend until a later purchase is approved.
+
+OF-006, the repository skeleton, started on the 2026-10-24 baseline. Ingestion of real source data still waited on the source registry and on OF-008 at that time.
 
 ## D-04 access
 
@@ -35,5 +52,5 @@ The MVP scheduler is a local scheduled command or a manual command with the same
 
 | Role | Result |
 |---|---|
-| Founder / Product Lead | Adopted by instruction on 2026-10-24 |
-| Production deploy | Still refused while the cap is USD 0 |
+| Founder / Product Lead | USD 0 cap adopted by instruction on 2026-10-24. USD 10 recurring ceiling adopted by instruction on 2026-10-29. Current recurring spend remains USD 0. |
+| Production deploy | Still refused. The ceiling is a spending maximum. A purchase needs a separate approval, and public hosting remains unapproved. |
