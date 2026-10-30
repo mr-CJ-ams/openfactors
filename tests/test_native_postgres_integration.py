@@ -411,6 +411,71 @@ def test_native_restore_ownership_lock_promotion_and_rollback(native_cluster: st
     assert not _database_exists("serving", PREVIOUS_DATABASE)
 
 
+def test_of_restore_can_read_only_the_handoff_dump(native_cluster: str) -> None:
+    """Inside the disposable container, of_restore reads one dump and nothing else."""
+    setup = """
+set -eu
+rm -rf /var/openfactors/restore
+mkdir -p /var/openfactors/restore/private
+printf 'secret' > /var/openfactors/restore/private/secret.dump
+chmod 0700 /var/openfactors/restore/private
+chmod 0600 /var/openfactors/restore/private/secret.dump
+mkdir -p /var/openfactors/restore/sample.handoff
+printf 'dump-bytes' > /var/openfactors/restore/sample.handoff/sample.dump
+chown root:of_restore /var/openfactors/restore
+chown root:of_restore /var/openfactors/restore/sample.handoff
+chown root:of_restore /var/openfactors/restore/sample.handoff/sample.dump
+chmod 0710 /var/openfactors/restore
+chmod 0550 /var/openfactors/restore/sample.handoff
+chmod 0440 /var/openfactors/restore/sample.handoff/sample.dump
+"""
+    _docker(["docker", "exec", "-u", "root", native_cluster, "bash", "-c", setup])
+
+    def as_restore(command: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["docker", "exec", "-u", "of_restore", native_cluster, "bash", "-c", command],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    secret = as_restore("cat /var/openfactors/restore/private/secret.dump")
+    listing = as_restore("ls /var/openfactors/restore")
+    dump = as_restore("cat /var/openfactors/restore/sample.handoff/sample.dump")
+    append = as_restore("printf x >> /var/openfactors/restore/sample.handoff/sample.dump")
+    extra = as_restore("touch /var/openfactors/restore/sample.handoff/extra")
+    assert secret.returncode != 0
+    assert listing.returncode != 0
+    assert dump.returncode == 0
+    assert dump.stdout == "dump-bytes"
+    assert append.returncode != 0
+    assert extra.returncode != 0
+    unchanged = _docker(
+        [
+            "docker",
+            "exec",
+            "-u",
+            "root",
+            native_cluster,
+            "cat",
+            "/var/openfactors/restore/sample.handoff/sample.dump",
+        ]
+    )
+    assert unchanged.stdout == "dump-bytes"
+    _docker(
+        [
+            "docker",
+            "exec",
+            "-u",
+            "root",
+            native_cluster,
+            "rm",
+            "-rf",
+            "/var/openfactors/restore",
+        ]
+    )
+
+
 def test_native_commands_are_documented_without_trust() -> None:
     guide = (ROOT / "docs" / "decisions" / "native-postgres-serving.md").read_text(encoding="utf-8")
     assert "local   all   of_restore   peer" in guide
@@ -418,3 +483,7 @@ def test_native_commands_are_documented_without_trust() -> None:
     assert "Do not use trust" in guide
     assert "Public Beta v0.1 stays no-go" in guide
     assert "OPENFACTORS_DB_BACKEND=native" in guide
+    assert "0710" in guide
+    assert "0440" in guide
+    assert ".handoff" in guide
+    assert "0777" in guide

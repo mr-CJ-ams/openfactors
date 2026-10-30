@@ -239,6 +239,8 @@ def _restore_private_candidate(environment: str, private: _PrivateCopy) -> dict[
     if str(manifest["release_id"]) != private.release_id:
         raise SnapshotError("The copied manifest release id does not match the accepted release.")
     verify_dump(private.dump, manifest)
+    if _backend_name() == "native" and not _using_native_harness():
+        _require_native_restore_parent()
     assert_cluster_roles(environment, REQUIRED_ROLES)
     created = False
     with _generation_lock(environment):
@@ -250,7 +252,11 @@ def _restore_private_candidate(environment: str, private: _PrivateCopy) -> dict[
         try:
             _create_candidate(environment)
             created = True
-            _restore_dump_file(environment, private.dump)
+            _restore_dump_file(
+                environment,
+                private.dump,
+                expected_digest=private.digest,
+            )
             evidence = validate_candidate(environment, manifest)
             _guard_generation_lock(environment, required=True)
             _mark_authenticated_candidate(environment)
@@ -472,9 +478,345 @@ def _open_restore_parent() -> int:
         raise SnapshotError("The private restore directory is missing.") from exc
     if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
         raise SnapshotError("The private restore directory is not a real directory.")
-    if info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o700:
-        raise SnapshotError("The private restore directory is not root-only.")
+    _require_restore_parent(info, native_handoff=False)
     return _open_directory_fd(RESTORE_ROOT)
+
+
+def _require_native_restore_parent() -> None:
+    """Require the parent mode that lets only of_restore traverse it."""
+    try:
+        info = os.lstat(RESTORE_ROOT)
+    except OSError as exc:
+        raise SnapshotError("The private restore directory is missing.") from exc
+    _require_restore_parent(info, native_handoff=True)
+
+
+def _require_restore_parent(info: os.stat_result, *, native_handoff: bool) -> None:
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise SnapshotError("The private restore directory is not a real directory.")
+    if info.st_uid != 0:
+        raise SnapshotError("The private restore directory is not root-only.")
+    mode = stat.S_IMODE(info.st_mode)
+    if mode & 0o007:
+        raise SnapshotError("The private restore directory is not root-only.")
+    if native_handoff:
+        if mode != 0o710 or info.st_gid != _of_restore_gid():
+            raise SnapshotError(
+                "The private restore directory must be mode 0710 and group of_restore."
+            )
+        return
+    if mode == 0o700:
+        return
+    if mode == 0o710 and info.st_gid == _of_restore_gid():
+        return
+    raise SnapshotError("The private restore directory is not root-only.")
+
+
+def _of_restore_gid() -> int:
+    if os.name != "posix":
+        raise SnapshotError("Native restore handoff runs on Linux.")
+    import pwd
+
+    try:
+        record = pwd.getpwnam(db_backend.OS_USER)
+    except KeyError as exc:
+        raise SnapshotError("The of_restore OS user does not exist.") from exc
+    if record.pw_uid == 0:
+        raise SnapshotError("The of_restore OS user must not be root.")
+    return record.pw_gid
+
+
+def _using_native_harness() -> bool:
+    return os.environ.get("OPENFACTORS_NATIVE_TEST_HARNESS") == "1"
+
+
+def _require_handoff_modes(
+    *,
+    parent_mode: int,
+    parent_uid: int,
+    parent_gid: int,
+    directory_mode: int,
+    directory_uid: int,
+    directory_gid: int,
+    file_mode: int,
+    file_uid: int,
+    file_gid: int,
+    expected_gid: int,
+) -> None:
+    """Accept only the root-owned handoff modes. Reject world and group write."""
+    if parent_uid != 0 or directory_uid != 0 or file_uid != 0:
+        raise SnapshotError("The native restore handoff is not owned by root.")
+    if parent_gid != expected_gid or directory_gid != expected_gid or file_gid != expected_gid:
+        raise SnapshotError("The native restore handoff group is not of_restore.")
+    if parent_mode != 0o710 or directory_mode != 0o550 or file_mode != 0o440:
+        raise SnapshotError("The native restore handoff permissions are not limited.")
+    for mode in (parent_mode, directory_mode, file_mode):
+        if mode & 0o022 or mode & 0o007:
+            raise SnapshotError("The native restore handoff permissions are not limited.")
+
+
+def _assert_private_dump_source(source: Path) -> str:
+    """The native handoff may copy only the verified private dump."""
+    if not source.is_absolute():
+        raise SnapshotError("The native restore path is not absolute.")
+    if ".." in source.parts:
+        raise SnapshotError("The native restore path leaves the private restore directory.")
+    if source.parent.parent != RESTORE_ROOT:
+        raise SnapshotError("The native restore can read only its private copy.")
+    if not source.name.endswith(".dump"):
+        raise SnapshotError("The native restore dump name is not a release id.")
+    release_id = source.name[: -len(".dump")]
+    if _RELEASE_ID.fullmatch(release_id) is None:
+        raise SnapshotError("The native restore dump name is not a release id.")
+    private_name = source.parent.name
+    if not private_name.startswith(f"{release_id}.") or private_name.endswith(".handoff"):
+        raise SnapshotError("The native restore can read only its private copy.")
+    if any(part in {"", ".", ".."} for part in private_name.split(".")):
+        raise SnapshotError("The native restore path leaves the private restore directory.")
+    return release_id
+
+
+def _handoff_directory(source: Path) -> Path:
+    directory = RESTORE_ROOT / f"{source.parent.name}.handoff"
+    if directory.parent != RESTORE_ROOT or not directory.name.endswith(".handoff"):
+        raise SnapshotError("The native restore handoff path is not safe.")
+    if ".." in directory.parts:
+        raise SnapshotError("The native restore handoff path is not safe.")
+    return directory
+
+
+def _stage_native_handoff(source: Path, expected_digest: str) -> Path:
+    """Copy a verified dump into a directory of_restore can read but not change.
+
+    The accepted snapshot is not opened or chmodded. The manifest and signature
+    stay in the root-only private directory.
+    """
+    _hex64(expected_digest, "dump checksum")
+    gid = _of_restore_gid()
+    release_id = _assert_private_dump_source(source)
+    _require_native_restore_parent()
+    _hash_regular_file(source, expected_digest)
+    directory = _handoff_directory(source)
+    dump = directory / f"{release_id}.dump"
+    try:
+        os.lstat(directory)
+    except FileNotFoundError:
+        pass
+    else:
+        raise SnapshotError("The native restore handoff already exists.")
+    parent = _open_restore_parent()
+    failure: OSError | None = None
+    try:
+        os.mkdir(directory.name, 0o700, dir_fd=parent)
+        os.chmod(directory.name, 0o700, dir_fd=parent, follow_symlinks=False)
+    except OSError as exc:
+        failure = exc
+    finally:
+        os.close(parent)
+    if failure is not None:
+        if failure.errno != errno.EEXIST:
+            _discard_native_handoff(directory)
+        raise SnapshotError("The native restore handoff could not be created.") from failure
+    try:
+        _copy_regular_file(source, directory, dump.name)
+        os.chown(dump, 0, gid, follow_symlinks=False)
+        os.chmod(dump, 0o440, follow_symlinks=False)
+        os.chmod(directory, 0o550, follow_symlinks=False)
+        os.chown(directory, 0, gid, follow_symlinks=False)
+        _assert_locked_handoff(directory, dump, gid)
+        _hash_regular_file(dump, expected_digest)
+        return dump
+    except Exception:
+        _discard_native_handoff(directory)
+        raise
+
+
+def _assert_locked_handoff(directory: Path, dump: Path, gid: int) -> None:
+    parent = os.lstat(RESTORE_ROOT)
+    held = os.lstat(directory)
+    copied = os.lstat(dump)
+    for info, kind in ((parent, "dir"), (held, "dir"), (copied, "file")):
+        if stat.S_ISLNK(info.st_mode):
+            raise SnapshotError("The native restore handoff contains a symlink.")
+        if kind == "dir" and not stat.S_ISDIR(info.st_mode):
+            raise SnapshotError("The native restore handoff is not a real directory.")
+        if kind == "file" and not stat.S_ISREG(info.st_mode):
+            raise SnapshotError("The native restore handoff is not a regular file.")
+    if dump.parent != directory or directory.parent != RESTORE_ROOT:
+        raise SnapshotError("The native restore handoff path is not safe.")
+    _require_handoff_modes(
+        parent_mode=stat.S_IMODE(parent.st_mode),
+        parent_uid=parent.st_uid,
+        parent_gid=parent.st_gid,
+        directory_mode=stat.S_IMODE(held.st_mode),
+        directory_uid=held.st_uid,
+        directory_gid=held.st_gid,
+        file_mode=stat.S_IMODE(copied.st_mode),
+        file_uid=copied.st_uid,
+        file_gid=copied.st_gid,
+        expected_gid=gid,
+    )
+
+
+def _hash_regular_file(path: Path, expected_digest: str) -> None:
+    flags = _nofollow_read_flags()
+    try:
+        handle = os.open(os.fspath(path), flags)
+    except OSError as exc:
+        if exc.errno in {errno.ELOOP, getattr(errno, "EMLINK", 0)}:
+            raise SnapshotError("The native restore handoff contains a symlink.") from exc
+        raise SnapshotError("The native restore dump could not be read.") from exc
+    try:
+        info = os.fstat(handle)
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+            raise SnapshotError("The native restore dump is not a regular file.")
+        if info.st_uid != 0:
+            raise SnapshotError("The native restore dump is not owned by root.")
+        digest = hashlib.sha256()
+        while True:
+            piece = os.read(handle, 1024 * 1024)
+            if not piece:
+                break
+            digest.update(piece)
+        actual = digest.hexdigest()
+    finally:
+        os.close(handle)
+    if not _same_text(actual, expected_digest):
+        raise SnapshotError("The native restore handoff does not match the verified dump.")
+
+
+def _copy_regular_file(source: Path, directory: Path, name: str) -> None:
+    if name != source.name or "/" in name or "\\" in name or ".." in name:
+        raise SnapshotError("The native restore handoff path is not safe.")
+    flags = _nofollow_read_flags()
+    try:
+        incoming = os.open(os.fspath(source), flags)
+    except OSError as exc:
+        raise SnapshotError("The native restore dump could not be read.") from exc
+    try:
+        info = os.fstat(incoming)
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+            raise SnapshotError("The native restore dump is not a regular file.")
+        if info.st_uid != 0:
+            raise SnapshotError("The native restore dump is not owned by root.")
+        dest_dir = _open_directory_fd(directory)
+        try:
+            out_flags = (
+                os.O_WRONLY
+                | os.O_CREAT
+                | os.O_EXCL
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0)
+            )
+            outgoing = os.open(name, out_flags, 0o600, dir_fd=dest_dir)
+            try:
+                while True:
+                    piece = os.read(incoming, 1024 * 1024)
+                    if not piece:
+                        break
+                    view = piece
+                    while view:
+                        written = os.write(outgoing, view)
+                        if written <= 0:
+                            raise SnapshotError("The native restore handoff could not be written.")
+                        view = view[written:]
+                os.fsync(outgoing)
+            finally:
+                os.close(outgoing)
+        finally:
+            os.close(dest_dir)
+    finally:
+        os.close(incoming)
+
+
+def _nofollow_read_flags() -> int:
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    if not nofollow:
+        raise SnapshotError("This host cannot refuse a replaced restore file.")
+    return os.O_RDONLY | nofollow | getattr(os, "O_CLOEXEC", 0)
+
+
+def _current_owner() -> int:
+    geteuid = getattr(os, "geteuid", None)
+    if geteuid is not None:
+        return int(geteuid())
+    return 0
+
+
+def _discard_native_handoff(directory: Path | None) -> None:
+    """Remove one handoff directory. Leave the accepted snapshot and the parent."""
+    if directory is None:
+        return
+    if directory.parent != RESTORE_ROOT or not directory.name.endswith(".handoff"):
+        raise SnapshotError("The native restore handoff path is not safe to remove.")
+    if ".." in directory.parts:
+        raise SnapshotError("The native restore handoff path is not safe to remove.")
+    try:
+        info = os.lstat(directory)
+    except FileNotFoundError:
+        return
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise SnapshotError("The native restore handoff is not safe to remove.")
+    if info.st_uid != _current_owner():
+        raise SnapshotError("The native restore handoff is not safe to remove.")
+    try:
+        entries = list(os.scandir(directory))
+    except OSError as exc:
+        raise SnapshotError("The native restore handoff is not safe to remove.") from exc
+    if len(entries) == 0:
+        try:
+            os.rmdir(directory)
+        except OSError as exc:
+            raise SnapshotError("The native restore handoff could not be removed.") from exc
+        return
+    if len(entries) != 1:
+        raise SnapshotError("The native restore handoff is not safe to remove.")
+    entry = entries[0]
+    if not entry.name.endswith(".dump") or "/" in entry.name or "\\" in entry.name:
+        raise SnapshotError("The native restore handoff is not safe to remove.")
+    try:
+        unexpected = entry.is_symlink() or not entry.is_file(follow_symlinks=False)
+    except OSError as exc:
+        raise SnapshotError("The native restore handoff is not safe to remove.") from exc
+    if unexpected:
+        raise SnapshotError("The native restore handoff is not safe to remove.")
+    try:
+        os.unlink(entry.path)
+        os.rmdir(directory)
+    except OSError as exc:
+        raise SnapshotError("The native restore handoff could not be removed.") from exc
+
+
+def _reject_native_restore_argument(path: str, *, harness: bool) -> None:
+    if not path.startswith("/") or "\n" in path or "\x00" in path or ".." in path.split("/"):
+        raise SnapshotError("The native restore path is not absolute.")
+    accepted = "/var/openfactors/accept"
+    if path == accepted or path.startswith(accepted + "/"):
+        raise SnapshotError("The native restore must not read the accepted snapshot directory.")
+    if harness:
+        return
+    root = RESTORE_ROOT.as_posix().rstrip("/")
+    parent, _slash, name = path.rpartition("/")
+    handoff = path.startswith(root + "/") and parent.endswith(".handoff")
+    if not handoff or not name.endswith(".dump"):
+        raise SnapshotError("The native restore path leaves the private restore directory.")
+
+
+def _run_native_pg_restore(path: str) -> None:
+    try:
+        argv = db_backend.native_pg_restore_argv(CANDIDATE_DATABASE, path)
+    except db_backend.BackendError as exc:
+        raise SnapshotError(str(exc)) from exc
+    restored = subprocess.run(
+        argv,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if restored.returncode != 0:
+        detail = (restored.stderr or restored.stdout or "").strip()
+        raise SnapshotError(detail or "The candidate restore failed.")
 
 
 def _write_private(directory_fd: int, name: str, payload: bytes) -> None:
@@ -1379,23 +1721,28 @@ def _pg_restore(environment: str, container_dump: str) -> subprocess.CompletedPr
     )
 
 
-def _restore_dump_file(environment: str, dump_path: Path) -> None:
+def _restore_dump_file(
+    environment: str,
+    dump_path: Path,
+    *,
+    expected_digest: str | None = None,
+) -> None:
     """Load a dump into openfactors_candidate and fail closed on any error."""
     if _backend_name() == "native":
+        handoff: Path | None = None
         try:
-            argv = db_backend.native_pg_restore_argv(CANDIDATE_DATABASE, dump_path.as_posix())
-        except db_backend.BackendError as exc:
-            raise SnapshotError(str(exc)) from exc
-        restored = subprocess.run(
-            argv,
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if restored.returncode != 0:
-            detail = (restored.stderr or restored.stdout or "").strip()
-            raise SnapshotError(detail or "The candidate restore failed.")
+            if _using_native_harness():
+                target = dump_path.as_posix()
+            else:
+                if expected_digest is None:
+                    raise SnapshotError("The native restore is missing the verified dump checksum.")
+                handoff = _stage_native_handoff(dump_path, expected_digest)
+                target = handoff.as_posix()
+            _reject_native_restore_argument(target, harness=_using_native_harness())
+            _run_native_pg_restore(target)
+        finally:
+            if handoff is not None:
+                _discard_native_handoff(handoff.parent)
         _apply_native_privileges(environment)
         return
     container_dump = _container_dump()
