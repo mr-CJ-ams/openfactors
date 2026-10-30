@@ -16,7 +16,15 @@ runuser -u of_restore -- psql --host /var/run/postgresql --username of_restore -
 
 `runuser` is the dedicated operating-system identity. Peer then maps OS user `of_restore` to database role `of_restore`. Do not use trust. Do not add a `pg_ident` line that maps root to `of_restore`. Do not replace existing authentication rules with a weaker rule.
 
-The disposable integration test uses the same idea inside a PostgreSQL 16.10 container: `docker exec -u of_restore`. That container is not the VPS. The test harness variables `OPENFACTORS_NATIVE_TEST_HARNESS` and `OPENFACTORS_NATIVE_DOCKER_CONTAINER` must be unset on the serving host.
+The accepted snapshot stays owned by `of_publish_accept` and mode `0440`. `of_restore` cannot read that directory. Root has already verified the signature and the dump checksum, then copies only the dump into a per-restore handoff:
+
+```text
+/var/openfactors/restore/<private-name>.handoff/<release-id>.dump
+```
+
+`/var/openfactors/restore` must be mode `0710` and group `of_restore`. That lets `of_restore` traverse a path it is given, and it does not let `of_restore` list or write the directory. The handoff directory is mode `0550` `root:of_restore`. The dump file is mode `0440` `root:of_restore`. `of_restore` can read that one file and cannot replace it, chmod it, or write it. The private directory that holds the manifest and signature stays mode `0700` and owned by root. The handoff is removed in a `finally` block after success or failure. The accepted snapshot is left in place. Do not use mode `0777`, a world-readable dump, or a handoff directory that `of_restore` can write.
+
+The disposable integration test uses the same idea inside a PostgreSQL 16.10 container: `docker exec -u of_restore`. That container is not the VPS. The test harness variables `OPENFACTORS_NATIVE_TEST_HARNESS` and `OPENFACTORS_NATIVE_DOCKER_CONTAINER` must be unset on the serving host. The harness does not use the production handoff path.
 
 ## Database roles
 
@@ -108,6 +116,26 @@ Do not use trust. Do not delete an existing rule to make this one work. Do not m
 Expected result: `of_restore` can run `psql --host /var/run/postgresql --username of_restore --no-password --dbname postgres -c 'SELECT current_user;'`. The answer is `of_restore`. The same command run as root fails.
 
 Next step: Stop if root can connect as `of_restore`.
+
+### 3b. Let of_restore traverse the private restore directory
+
+What: Change `/var/openfactors/restore` from mode `0700` to mode `0710` and group `of_restore`.
+
+Why: `pg_restore` runs as `of_restore` and must open one handoff file. The parent stays non-writable and unlistable. Accepted snapshot permissions are not changed.
+
+Where: The serving host. Do not change this directory on the development computer.
+
+How:
+
+```text
+chgrp of_restore /var/openfactors/restore
+chmod 0710 /var/openfactors/restore
+stat -c '%A %U %G' /var/openfactors/restore
+```
+
+Expected result: `drwx--x--- root of_restore`. `ls` as `of_restore` fails. A known child path can be traversed.
+
+Next step: Stop if the mode is `0777`, if the group is not `of_restore`, or if `of_restore` can create a file in that directory.
 
 ### 4. Create the database roles
 
