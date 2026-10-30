@@ -165,30 +165,41 @@ def native_cluster() -> str:
                 "of_restore",
             ]
         )
-        _docker(
-            [
-                "docker",
-                "cp",
-                str(ROOT / "ops" / "sql" / "bootstrap_serving_roles.sql"),
-                f"{name}:/tmp/bootstrap_serving_roles.sql",
-            ]
-        )
-        _docker(
-            [
-                "docker",
-                "exec",
-                "-u",
-                "postgres",
+        bootstrap = "/tmp/bootstrap_serving_roles.sql"
+        try:
+            _docker(
+                [
+                    "docker",
+                    "cp",
+                    str(ROOT / "ops" / "sql" / "bootstrap_serving_roles.sql"),
+                    f"{name}:{bootstrap}",
+                ]
+            )
+            _grant_container_read(
                 name,
-                "psql",
-                "--dbname",
-                "postgres",
-                "--set",
-                "ON_ERROR_STOP=1",
-                "--file",
-                "/tmp/bootstrap_serving_roles.sql",
-            ]
-        )
+                bootstrap,
+                owner="postgres:postgres",
+                mode="400",
+                reader="postgres",
+            )
+            _docker(
+                [
+                    "docker",
+                    "exec",
+                    "-u",
+                    "postgres",
+                    name,
+                    "psql",
+                    "--dbname",
+                    "postgres",
+                    "--set",
+                    "ON_ERROR_STOP=1",
+                    "--file",
+                    bootstrap,
+                ]
+            )
+        finally:
+            _remove_container_file(name, bootstrap)
         _docker(
             [
                 "docker",
@@ -226,6 +237,32 @@ def native_cluster() -> str:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)
 
 
+def _grant_container_read(
+    name: str,
+    path: str,
+    *,
+    owner: str,
+    mode: str,
+    reader: str,
+) -> None:
+    """Give one container user read access. Leave the parent directory unchanged."""
+    _docker(["docker", "exec", "-u", "root", name, "chown", owner, path])
+    _docker(["docker", "exec", "-u", "root", name, "chmod", mode, path])
+    recorded = _docker(["docker", "exec", "-u", "root", name, "stat", "-c", "%U %G %a", path])
+    user, group = owner.split(":", 1)
+    assert recorded.stdout.strip() == f"{user} {group} {mode}"
+    probe = subprocess.run(
+        ["docker", "exec", "-u", reader, name, "test", "-r", path],
+        capture_output=True,
+        check=False,
+    )
+    assert probe.returncode == 0
+
+
+def _remove_container_file(name: str, path: str) -> None:
+    _docker(["docker", "exec", "-u", "root", name, "rm", "-f", path])
+
+
 def _dump(name: str, release_id: str) -> str:
     version = str(load_json(CONTRACT_PATH)["dataset_version"])
     digest = content_sha256([])
@@ -236,6 +273,7 @@ def _dump(name: str, release_id: str) -> str:
         .replace("__SCHEMA_VERSION__", version)
     )
     inside = f"/tmp/{release_id}.sql"
+    dump = f"/tmp/{release_id}.dump"
     with tempfile.NamedTemporaryFile(
         "w",
         encoding="utf-8",
@@ -244,73 +282,95 @@ def _dump(name: str, release_id: str) -> str:
     ) as handle:
         handle.write(sql)
         host = Path(handle.name)
+    created = False
+    ready = False
     try:
         _docker(["docker", "cp", str(host), f"{name}:{inside}"])
+        # docker cp keeps the host mode. Python creates that file as 0600,
+        # and the copy is owned by root, so postgres cannot read it on Linux.
+        _grant_container_read(
+            name,
+            inside,
+            owner="postgres:postgres",
+            mode="400",
+            reader="postgres",
+        )
+        _docker(
+            [
+                "docker",
+                "exec",
+                "-u",
+                "postgres",
+                name,
+                "psql",
+                "--dbname",
+                "postgres",
+                "--command",
+                "CREATE DATABASE openfactors_fixture;",
+            ]
+        )
+        created = True
+        _docker(
+            [
+                "docker",
+                "exec",
+                "-u",
+                "postgres",
+                name,
+                "psql",
+                "--dbname",
+                "openfactors_fixture",
+                "--set",
+                "ON_ERROR_STOP=1",
+                "--file",
+                inside,
+            ]
+        )
+        _docker(
+            [
+                "docker",
+                "exec",
+                "-u",
+                "postgres",
+                name,
+                "pg_dump",
+                "--dbname",
+                "openfactors_fixture",
+                "--format",
+                "custom",
+                "--file",
+                dump,
+            ]
+        )
+        _grant_container_read(
+            name,
+            dump,
+            owner="root:of_restore",
+            mode="440",
+            reader="of_restore",
+        )
+        ready = True
+        return dump
     finally:
         host.unlink(missing_ok=True)
-    _docker(
-        [
-            "docker",
-            "exec",
-            "-u",
-            "postgres",
-            name,
-            "psql",
-            "--dbname",
-            "postgres",
-            "--command",
-            "CREATE DATABASE openfactors_fixture;",
-        ]
-    )
-    _docker(
-        [
-            "docker",
-            "exec",
-            "-u",
-            "postgres",
-            name,
-            "psql",
-            "--dbname",
-            "openfactors_fixture",
-            "--set",
-            "ON_ERROR_STOP=1",
-            "--file",
-            inside,
-        ]
-    )
-    dump = f"/tmp/{release_id}.dump"
-    _docker(
-        [
-            "docker",
-            "exec",
-            "-u",
-            "postgres",
-            name,
-            "pg_dump",
-            "--dbname",
-            "openfactors_fixture",
-            "--format",
-            "custom",
-            "--file",
-            dump,
-        ]
-    )
-    _docker(["docker", "exec", "-u", "root", name, "chmod", "644", dump])
-    _docker(
-        [
-            "docker",
-            "exec",
-            "-u",
-            "postgres",
-            name,
-            "psql",
-            "--dbname",
-            "postgres",
-            "--command",
-            "DROP DATABASE openfactors_fixture WITH (FORCE);",
-        ]
-    )
-    return dump
+        _remove_container_file(name, inside)
+        if created:
+            _docker(
+                [
+                    "docker",
+                    "exec",
+                    "-u",
+                    "postgres",
+                    name,
+                    "psql",
+                    "--dbname",
+                    "postgres",
+                    "--command",
+                    "DROP DATABASE openfactors_fixture WITH (FORCE);",
+                ]
+            )
+        if not ready:
+            _remove_container_file(name, dump)
 
 
 def _manifest(release_id: str) -> dict[str, object]:
@@ -324,15 +384,18 @@ def _manifest(release_id: str) -> dict[str, object]:
 
 def _publish(name: str, release_id: str) -> None:
     dump = _dump(name, release_id)
-    with _generation_lock("serving"):
-        _create_candidate("serving")
-        try:
-            _restore_dump_file("serving", Path(dump))
-            validate_candidate("serving", _manifest(release_id))
-            _mark_authenticated_candidate("serving")
-        except Exception:
-            drop_database("serving", "openfactors_candidate")
-            raise
+    try:
+        with _generation_lock("serving"):
+            _create_candidate("serving")
+            try:
+                _restore_dump_file("serving", Path(dump))
+                validate_candidate("serving", _manifest(release_id))
+                _mark_authenticated_candidate("serving")
+            except Exception:
+                drop_database("serving", "openfactors_candidate")
+                raise
+    finally:
+        _remove_container_file(name, dump)
 
 
 def test_native_restore_ownership_lock_promotion_and_rollback(native_cluster: str) -> None:
